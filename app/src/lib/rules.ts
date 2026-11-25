@@ -1,0 +1,75 @@
+import type { Product, Weekday } from './types';
+
+/** Քանակի հաջորդ արժեքը «+» սեղմելիս. 0 → նվազագույն, հետո՝ քայլով */
+export function incQty(p: Product, qty: number): number {
+  if (qty < p.minQty) return p.minQty;
+  return round(qty + p.step);
+}
+
+/** Քանակի նախորդ արժեքը «−» սեղմելիս. նվազագույնից ցածր → 0 */
+export function decQty(p: Product, qty: number): number {
+  const next = round(qty - p.step);
+  return next < p.minQty ? 0 : next;
+}
+
+/** Ճի՞շտ է քանակը ըստ նվազագույնի և քայլի */
+export function isValidQty(p: Product, qty: number): boolean {
+  if (qty === 0) return true;
+  if (qty < p.minQty) return false;
+  const k = (qty - p.minQty) / p.step;
+  return Math.abs(k - Math.round(k)) < 1e-9;
+}
+
+function round(n: number) {
+  return Math.round(n * 1000) / 1000;
+}
+
+const weekdayNames = ['', 'երկուշաբթի', 'երեքշաբթի', 'չորեքշաբթի', 'հինգշաբթի', 'ուրբաթ', 'շաբաթ', 'կիրակի'];
+
+/** JS-ի getDay() (0 = կիրակի) → 1..7 (1 = երկուշաբթի) */
+export function weekdayOf(d: Date): Weekday {
+  const js = d.getDay();
+  return (js === 0 ? 7 : js) as Weekday;
+}
+
+/**
+ * Առաքման հաջորդ օրը՝ ըստ գծի օրերի (§4.2)։
+ * Պատվերը ամենաշուտը վաղն է առաքվում; դատարկ ցուցակ = ամեն օր։
+ */
+export function nextDeliveryDate(days: Weekday[], from: Date = new Date()): Date {
+  const d = new Date(from);
+  d.setHours(0, 0, 0, 0);
+  for (let i = 1; i <= 7; i++) {
+    const c = new Date(d);
+    c.setDate(d.getDate() + i);
+    if (days.length === 0 || days.includes(weekdayOf(c))) return c;
+  }
+  return d;
+}
+
+export function deliveryLabel(date: Date, from: Date = new Date()): string {
+  const a = new Date(from);
+  a.setHours(0, 0, 0, 0);
+  const diff = Math.round((date.getTime() - a.getTime()) / 86400000);
+  if (diff === 1) return 'վաղը';
+  return weekdayNames[weekdayOf(date)];
+}
+
+export function toISODate(d: Date): string {
+  const m = `${d.getMonth() + 1}`.padStart(2, '0');
+  const day = `${d.getDate()}`.padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+export function formatAmd(n: number): string {
+  return `${Math.round(n).toLocaleString('en-US').replace(/,/g, ' ')} ֏`;
+}
+
+export function formatQty(p: Product, qty: number): string {
+  return `${p.weighed ? 'մոտ ' : ''}${qty} ${p.unit}`;
+}
+
+export function formatTime(iso: string): string {
+  const d = new Date(iso);
+  return `${`${d.getHours()}`.padStart(2, '0')}:${`${d.getMinutes()}`.padStart(2, '0')}`;
+}
