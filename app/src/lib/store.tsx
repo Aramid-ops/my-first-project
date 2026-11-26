@@ -92,7 +92,7 @@ const mapOrder = (r: any): Order => ({
   createdAt: r.created_at,
   items: (r.order_items ?? []).map((i: any) => ({ productId: i.product_id, qty: Number(i.qty), actualQty: i.actual_qty == null ? undefined : Number(i.actual_qty) })),
   events: (r.order_events ?? [])
-    .map((e: any) => ({ at: e.at, byName: e.actor_name, text: e.text }))
+    .map((e: any) => ({ at: e.at, byName: e.actor_name, text: e.text, lat: e.lat ?? undefined, lng: e.lng ?? undefined }))
     .sort((a: any, b: any) => a.at.localeCompare(b.at)),
 });
 /* eslint-enable @typescript-eslint/no-explicit-any */

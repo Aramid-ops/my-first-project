@@ -87,6 +87,8 @@ export interface OrderEvent {
   at: string; // ISO
   byName: string;
   text: string;
+  lat?: number;
+  lng?: number;
 }
 
 export interface Order {

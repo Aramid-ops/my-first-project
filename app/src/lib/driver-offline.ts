@@ -8,12 +8,29 @@ import { Linking, Platform } from 'react-native';
 import { supabase } from './supabase';
 import type { Order, OrderStatus, Shop } from './types';
 
-export type DriverAction = {
-  id: string;
-  orderId: string;
-  status: Extract<OrderStatus, 'on_the_way' | 'delivered'>;
-  at: string; // երբ իրականում սեղմվեց
-};
+export type DriverAction =
+  | {
+      kind?: 'status';
+      id: string;
+      orderId: string;
+      status: Extract<OrderStatus, 'on_the_way' | 'delivered'>;
+      at: string; // երբ իրականում սեղմվեց
+      lat?: number;
+      lng?: number;
+    }
+  | {
+      kind: 'finish';
+      id: string;
+      driverId: string;
+      firmId: string;
+      day: string; // YYYY-MM-DD
+      at: string;
+      startedAt?: string;
+      stops: number;
+      km: number | null;
+    };
+
+type StatusAction = Extract<DriverAction, { orderId: string }>;
 
 const key = (uid: string) => `driver-outbox:${uid}`;
 
@@ -26,18 +43,27 @@ export async function saveOutbox(uid: string, list: DriverAction[]) {
   await AsyncStorage.setItem(key(uid), JSON.stringify(list)).catch(() => {});
 }
 
-/** Պատվերների վրա կիրառում ենք դեռ չուղարկված գործողությունները */
-export function applyOutbox(orders: Order[], outbox: DriverAction[]): Order[] {
-  if (outbox.length === 0) return orders;
-  const last = new Map<string, DriverAction>();
-  for (const a of outbox) last.set(a.orderId, a);
-  return orders.map((o) => (last.has(o.id) ? { ...o, status: last.get(o.id)!.status } : o));
-}
-
-const eventText: Record<DriverAction['status'], string> = {
+const eventText: Record<StatusAction['status'], string> = {
   on_the_way: 'Մեկնեց',
   delivered: 'Առաքեց',
 };
+
+/** Պատվերների վրա կիրառում ենք դեռ չուղարկված գործողությունները */
+export function applyOutbox(orders: Order[], outbox: DriverAction[], driverName = ''): Order[] {
+  if (outbox.length === 0) return orders;
+  const byOrder = new Map<string, StatusAction[]>();
+  for (const a of outbox) if (a.kind !== 'finish') byOrder.set(a.orderId, [...(byOrder.get(a.orderId) ?? []), a]);
+  return orders.map((o) => {
+    const acts = byOrder.get(o.id);
+    if (!acts) return o;
+    return {
+      ...o,
+      status: acts[acts.length - 1].status,
+      // Չուղարկված գործողությունները ավելացնում ենք պատմությանը, որ ամփոփումը ճիշտ լինի offline
+      events: [...o.events, ...acts.map((x) => ({ at: x.at, byName: driverName, text: eventText[x.status], lat: x.lat, lng: x.lng }))],
+    };
+  });
+}
 
 /**
  * Ուղարկում է հերթը հերթականությամբ։ Սխալի դեպքում կանգ է առնում
@@ -47,10 +73,25 @@ export async function syncOutbox(uid: string): Promise<DriverAction[]> {
   let list = await loadOutbox(uid);
   while (list.length > 0) {
     const a = list[0];
-    const up = await supabase.from('orders').update({ status: a.status }).eq('id', a.orderId);
-    if (up.error) break;
-    const ev = await supabase.from('order_events').insert({ order_id: a.orderId, actor_name: '', text: eventText[a.status], at: a.at });
-    if (ev.error) break;
+    if (a.kind === 'finish') {
+      const r = await supabase.from('driver_days').upsert({
+        driver_id: a.driverId,
+        firm_id: a.firmId,
+        day: a.day,
+        started_at: a.startedAt ?? null,
+        finished_at: a.at,
+        stops_delivered: a.stops,
+        km_estimate: a.km,
+      });
+      if (r.error) break;
+    } else {
+      const up = await supabase.from('orders').update({ status: a.status }).eq('id', a.orderId);
+      if (up.error) break;
+      const ev = await supabase
+        .from('order_events')
+        .insert({ order_id: a.orderId, actor_name: '', text: eventText[a.status], at: a.at, lat: a.lat ?? null, lng: a.lng ?? null });
+      if (ev.error) break;
+    }
     list = list.slice(1);
     await saveOutbox(uid, list);
   }

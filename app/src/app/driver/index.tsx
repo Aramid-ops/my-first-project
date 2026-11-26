@@ -3,8 +3,12 @@ import { Redirect, router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { applyOutbox, loadOutbox, openRoute, saveOutbox, syncOutbox, type DriverAction } from '@/lib/driver-offline';
-import { formatQty, formatTime } from '@/lib/rules';
+import { driverDays, earlierThanUsualMin, type FinishedDayRow } from '@/lib/driver-stats';
+import { currentPoint } from '@/lib/geo';
+import { formatQty, formatTime, toISODate } from '@/lib/rules';
 import { useStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { colors, radius } from '@/lib/theme';
@@ -17,6 +21,7 @@ export default function DriverStops() {
   const [online, setOnline] = useState(true);
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [pickedId, setPickedId] = useState<string | null>(null);
+  const [finishedRows, setFinishedRows] = useState<FinishedDayRow[]>([]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -27,6 +32,19 @@ export default function DriverStops() {
   }, []);
 
   // Փորձում ենք ուղարկել հերթը և թարմացնել տվյալները. սկզբում և ամեն 20 վայրկյանը մեկ
+  const loadFinished = useCallback(async () => {
+    if (!uid) return;
+    const cacheKey = `driver-days:${uid}`;
+    const { data, error } = await supabase.from('driver_days').select('day, finished_at, km_estimate').order('day', { ascending: false }).limit(14);
+    if (!error && data) {
+      setFinishedRows(data as FinishedDayRow[]);
+      AsyncStorage.setItem(cacheKey, JSON.stringify(data)).catch(() => {});
+    } else {
+      const raw = await AsyncStorage.getItem(cacheKey).catch(() => null);
+      if (raw) setFinishedRows(JSON.parse(raw));
+    }
+  }, [uid]);
+
   const sync = useCallback(async () => {
     if (!uid) return;
     const left = await syncOutbox(uid);
@@ -36,9 +54,10 @@ export default function DriverStops() {
     setOnline(!ping.error);
     if (ok) {
       await reload();
+      await loadFinished();
       setLastSync(new Date().toISOString());
     }
-  }, [uid, reload]);
+  }, [uid, reload, loadFinished]);
 
   useEffect(() => {
     sync();
@@ -48,24 +67,35 @@ export default function DriverStops() {
 
   const me = session?.kind === 'employee' ? employees.find((e) => e.id === session.employeeId) : undefined;
 
+  const withOutbox = useMemo(() => (me ? applyOutbox(orders, outbox, me.name) : orders), [orders, outbox, me]);
   const stops = useMemo(() => {
     if (!me) return [];
-    return applyOutbox(orders, outbox)
+    return withOutbox
       .filter((o) => o.driverId === me.id && ['preparing', 'on_the_way', 'delivered'].includes(o.status))
       .sort((a, b) => a.deliveryDate.localeCompare(b.deliveryDate) || a.createdAt.localeCompare(b.createdAt));
-  }, [orders, outbox, me]);
+  }, [withOutbox, me]);
 
   if (session?.kind !== 'employee' || !me) return <Redirect href="/" />;
 
+  // Օրվա ամփոփում (ներառյալ չուղարկված գործողությունները)
+  const localFinished: FinishedDayRow[] = outbox
+    .filter((a): a is Extract<DriverAction, { kind: 'finish' }> => a.kind === 'finish')
+    .map((a) => ({ day: a.day, finished_at: a.at, km_estimate: a.km }));
+  const days = driverDays(withOutbox, me.name, [...localFinished, ...finishedRows]);
+  const today = days[0];
+  const vsUsual = earlierThanUsualMin(today, days.slice(1).filter((d) => d.stops > 0));
+
   const open = stops.filter((o) => o.status !== 'delivered');
-  const done = stops.filter((o) => o.status === 'delivered');
+  const done = stops.filter((o) => o.status === 'delivered' && o.events.some((e) => e.text === 'Առաքեց' && toISODate(new Date(e.at)) === today.day));
   const current = open.find((o) => o.id === pickedId) ?? open[0];
   const shop = current ? shops.find((s) => s.id === current.shopId) : undefined;
   const manager = current ? employees.find((e) => e.id === current.managerId) : undefined;
 
-  const act = async (status: DriverAction['status']) => {
+  const act = async (status: 'on_the_way' | 'delivered') => {
     if (!uid || !current) return;
-    const next = [...outbox, { id: `${Date.now()}`, orderId: current.id, status, at: new Date().toISOString() }];
+    const at = new Date().toISOString();
+    const p = await currentPoint(); // տեղը՝ միայն այս պահին (կիլոմետրաժի համար)
+    const next: DriverAction[] = [...outbox, { id: `${Date.now()}`, orderId: current.id, status, at, lat: p?.lat, lng: p?.lng }];
     setOutbox(next);
     await saveOutbox(uid, next);
     if (status === 'delivered') setPickedId(null);
@@ -78,7 +108,7 @@ export default function DriverStops() {
         <View style={{ gap: 2 }}>
           <Text style={styles.muted}>Վարորդ · {me.name}</Text>
           <Text style={styles.title}>
-            Այսօր՝ {done.length} / {stops.length}
+            Այսօր՝ {done.length} / {done.length + open.length}
           </Text>
         </View>
         <Pressable accessibilityRole="button" onPress={() => { signOut(); router.replace('/'); }} hitSlop={12}>
@@ -145,11 +175,57 @@ export default function DriverStops() {
             ) : null}
           </View>
         ) : (
-          <View style={[styles.card, { gap: 6 }]}>
-            <Text style={styles.strong}>{stops.length ? 'Բոլոր կանգառներն ավարտված են 🎉' : 'Այսօր պատվեր չկա'}</Text>
-            <Text style={styles.muted}>Նոր պատվերները կհայտնվեն, երբ կապ լինի</Text>
+          <View style={[styles.card, { gap: 10 }]}>
+            {today.finishedAt ? (
+              <>
+                <Text style={styles.strong}>Օրն ավարտված է {formatTime(today.finishedAt)}-ին ✓</Text>
+                <Text style={styles.body}>
+                  {today.stops} կանգառ
+                  {today.startedAt ? ` · ${formatTime(today.startedAt)}–${formatTime(today.finishedAt)}` : ''}
+                  {today.km != null ? ` · մոտ ${today.km} կմ` : ''}
+                </Text>
+                {vsUsual != null && Math.abs(vsUsual) >= 10 ? (
+                  <Text style={{ color: vsUsual > 0 ? colors.primary : colors.warnText, fontWeight: '600' }}>
+                    {vsUsual > 0 ? `Այսօր ավարտեցիք ${vsUsual} րոպե ավելի շուտ, քան սովորաբար 👏` : `Այսօր ավարտեցիք ${-vsUsual} րոպե ավելի ուշ, քան սովորաբար`}
+                  </Text>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <Text style={styles.strong}>{done.length ? 'Բոլոր կանգառներն ավարտված են 🎉' : 'Այսօր պատվեր չկա'}</Text>
+                <Text style={styles.muted}>Նոր պատվերները կհայտնվեն, երբ կապ լինի</Text>
+                {done.length ? (
+                  <Button
+                    kind="dark"
+                    label="Ավարտել օրը"
+                    onPress={async () => {
+                      if (!uid) return;
+                      const next: DriverAction[] = [
+                        ...outbox,
+                        {
+                          kind: 'finish',
+                          id: `${Date.now()}`,
+                          driverId: me.id,
+                          firmId: me.firmId,
+                          day: today.day,
+                          at: new Date().toISOString(),
+                          startedAt: today.startedAt,
+                          stops: today.stops,
+                          km: today.km,
+                        },
+                      ];
+                      setOutbox(next);
+                      await saveOutbox(uid, next);
+                      sync();
+                    }}
+                  />
+                ) : null}
+              </>
+            )}
           </View>
         )}
+
+        <Button kind="outline" label="Պատմություն · վերջին 7 օր" onPress={() => router.push('/driver/history')} />
 
         {open.length > 1 ? <Text style={[styles.strong, { fontSize: 15, marginTop: 6 }]}>Հաջորդ կանգառները</Text> : null}
         {open
