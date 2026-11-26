@@ -12,10 +12,18 @@ export default function ManagerInbox() {
   const me = employees.find((e) => e.id === session.employeeId)!;
   const firm = firms.find((f) => f.id === me.firmId)!;
   const target = employees.find((e) => e.id === me.defaultForwardToId);
+  const isManager = me.role === 'manager';
+  const roleLabel = isManager ? 'մենեջեր' : me.department ?? (me.role === 'driver' ? 'վարորդ' : 'աշխատող');
+  // Ում կարող է փոխանցել ներքին աշխատողը (նույն ֆիրմայի մյուս աշխատողներն ու վարորդները)
+  const forwardTargets = employees.filter((e) => e.firmId === me.firmId && e.id !== me.id && (e.role === 'staff' || e.role === 'driver'));
 
-  const mine = orders.filter((o) => o.managerId === me.id);
-  const waiting = mine.filter((o) => o.status === 'sent' || o.status === 'accepted');
-  const done = mine.filter((o) => !(o.status === 'sent' || o.status === 'accepted'));
+  // Մենեջեր՝ իր խանութների նոր պատվերները; ներքին աշխատող՝ իրեն փոխանցվածները
+  const waiting = isManager
+    ? orders.filter((o) => o.managerId === me.id && (o.status === 'sent' || o.status === 'accepted'))
+    : orders.filter((o) => o.assigneeId === me.id && o.status === 'preparing');
+  const done = isManager
+    ? orders.filter((o) => o.managerId === me.id && !(o.status === 'sent' || o.status === 'accepted'))
+    : orders.filter((o) => o.assigneeId !== me.id && o.events.some((ev) => ev.byName === me.name));
 
   return (
     <Screen>
@@ -25,7 +33,7 @@ export default function ManagerInbox() {
           <Text style={styles.muted}>Դուրս գալ</Text>
         </Pressable>
       </View>
-      <Title sub={`${firm.name} · մենեջեր`}>Բարև, {me.name}</Title>
+      <Title sub={`${firm.name} · ${roleLabel}`}>Բարև, {me.name}</Title>
 
       <ScrollView contentContainerStyle={{ gap: 10, paddingBottom: 24 }}>
         <Text style={[styles.strong, { fontSize: 15 }]}>Նոր պատվերներ · {waiting.length}</Text>
@@ -50,7 +58,22 @@ export default function ManagerInbox() {
                   </View>
                 );
               })}
-              {o.status === 'sent' ? (
+              {!isManager ? (
+                <View style={{ gap: 8 }}>
+                  <Text style={styles.muted}>Փոխանցել՝</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                    {forwardTargets.map((t) => (
+                      <Button
+                        key={t.id}
+                        kind="dark"
+                        label={`${t.name} (${t.department ?? (t.role === 'driver' ? 'վարորդ' : 'աշխատող')})`}
+                        onPress={() => forward(o.id, t.id)}
+                        style={{ flexGrow: 1 }}
+                      />
+                    ))}
+                  </View>
+                </View>
+              ) : o.status === 'sent' ? (
                 <Button label="Ընդունել" onPress={() => accept(o.id)} />
               ) : target ? (
                 <Button kind="dark" label={`Փոխանցել → ${target.name}${target.department ? ` (${target.department})` : ''}`} onPress={() => forward(o.id, target.id)} />
