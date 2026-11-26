@@ -23,6 +23,14 @@ export default function ShopHome() {
         </Pressable>
       </View>
       <Title sub={shop.name}>Իմ մատակարարները</Title>
+      <Pressable
+        accessibilityRole="search"
+        accessibilityLabel="Որոնում"
+        onPress={() => router.push('/shop/search')}
+        style={[styles.card, { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, marginBottom: 12 }]}>
+        <Text style={{ fontSize: 16 }}>🔍</Text>
+        <Text style={styles.muted}>Ապրանք, մատակարար կամ արտիկուլ</Text>
+      </Pressable>
 
       <ScrollView contentContainerStyle={{ gap: 10, paddingBottom: 24 }}>
         {myLinks.map((l) => {

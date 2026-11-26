@@ -1,6 +1,8 @@
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
-import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { matches } from '@/lib/search';
 import { decQty, deliveryLabel, formatAmd, incQty, nextDeliveryDate } from '@/lib/rules';
 import { useStore } from '@/lib/store';
 import { colors, radius } from '@/lib/theme';
@@ -9,12 +11,13 @@ import { Button, Logo, Pill, Screen, styles } from '@/lib/ui';
 export default function SupplierCatalog() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session, firms, links, employees, products, cart, setQty } = useStore();
+  const [filter, setFilter] = useState('');
   if (session?.kind !== 'shop') return <Redirect href="/" />;
   const firm = firms.find((f) => f.id === id);
   const link = links.find((l) => l.shopId === session.shopId && l.firmId === id);
   if (!firm || !link) return null;
   const manager = employees.find((e) => e.id === link.managerId)!;
-  const list = products.filter((p) => p.firmId === firm.id);
+  const list = products.filter((p) => p.firmId === firm.id && (matches(`${p.name} ${p.packNote ?? ''}`, filter) || (p.sku ?? '').toLowerCase().startsWith(filter.trim().toLowerCase())));
   const inCart = Object.keys(cart).length;
 
   return (
@@ -41,12 +44,24 @@ export default function SupplierCatalog() {
         ) : null}
       </View>
 
-      <ScrollView contentContainerStyle={{ gap: 10, paddingBottom: 24 }}>
+      <TextInput
+        value={filter}
+        onChangeText={setFilter}
+        placeholder="Որոնել այս մատակարարի մոտ"
+        accessibilityLabel="Որոնել այս մատակարարի մոտ"
+        autoCorrect={false}
+        autoCapitalize="none"
+        style={{ minHeight: 46, borderWidth: 1, borderColor: colors.borderStrong, borderRadius: radius.md, paddingHorizontal: 14, fontSize: 15, backgroundColor: colors.card, marginBottom: 10, color: colors.text }}
+      />
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 10, paddingBottom: 24 }}>
         {list.map((p) => {
           const qty = cart[p.id] ?? 0;
           return (
             <View key={p.id} style={[styles.card, { gap: 6, opacity: p.inStock ? 1 : 0.55 }]}>
-              <Text style={styles.strong}>{p.name}</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
+                <Text style={[styles.strong, { flex: 1 }]}>{p.name}</Text>
+                {p.sku ? <Text style={{ fontSize: 12, fontWeight: '700', color: colors.dark }}>{p.sku}</Text> : null}
+              </View>
               {p.packNote ? <Text style={styles.muted}>{p.packNote}</Text> : null}
               <Text style={styles.muted}>
                 {p.weighed ? 'Կշռվող · ' : ''}Նվազագույնը՝ {p.minQty} {p.unit}

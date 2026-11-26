@@ -68,6 +68,7 @@ const mapShop = (r: any): Shop => ({ id: r.id, name: r.name, taxId: r.tax_id, ci
 const mapLink = (r: any): ShopFirmLink => ({ shopId: r.shop_id, firmId: r.firm_id, managerId: r.manager_id, status: r.status, deliveryDays: (r.delivery_days ?? []) as Weekday[] });
 const mapProduct = (r: any): Product => ({
   id: r.id,
+  sku: r.sku ?? undefined,
   firmId: r.firm_id,
   name: r.name,
   imageUrl: r.image_url ?? undefined,

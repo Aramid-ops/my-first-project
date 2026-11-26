@@ -51,6 +51,8 @@ export type Unit = 'հատ' | 'կգ' | 'գ' | 'լ' | 'մ' | 'տուփ' | 'բլո
 
 export interface Product {
   id: string;
+  /** Արտիկուլ, օր.՝ AT0012 */
+  sku?: string;
   firmId: string;
   name: string;
   imageUrl?: string;
