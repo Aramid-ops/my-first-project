@@ -28,7 +28,7 @@ export default function ShopOrders() {
           const tone = o.status === 'returned' ? 'warn' : o.status === 'sent' ? 'info' : 'ok';
           return (
             <Pressable key={o.id} accessibilityRole="button" onPress={() => router.push(`/shop/order/${o.id}`)} style={[styles.card, { flexDirection: 'row', gap: 12, alignItems: 'center' }]}>
-              <Logo name={f.name} bg={f.color.bg} fg={f.color.fg} size={44} />
+              <Logo name={f.name} uri={f.logoUrl} bg={f.color.bg} fg={f.color.fg} size={44} />
               <View style={{ flex: 1, gap: 4 }}>
                 <Text style={styles.strong}>{f.name}</Text>
                 <Text style={styles.muted}>Մենեջեր՝ {employees.find((e) => e.id === o.managerId)?.name}</Text>

@@ -8,13 +8,17 @@ import { formatAmd, toISODate } from '@/lib/rules';
 import { useStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { colors } from '@/lib/theme';
-import { Button, Chips, Screen, styles, Title } from '@/lib/ui';
+import { pickAndUpload } from '@/lib/media';
+import { Button, Card, Chips, CopyRow, Field, Logo, Screen, styles, Title } from '@/lib/ui';
 
 const dayShort = ['', 'երկ', 'երք', 'չրք', 'հնգ', 'ուրբ', 'շբթ', 'կիր'];
 
 export default function Admin() {
-  const { session, employees, firms, shops, links, lines, teams, orders, issues, debts, payments, setLineDriver, setLineCutoff, toggleTeamMember, setLinkManager, setLinkLine, confirmPayment, signOut } = useStore();
-  const [tab, setTab] = useState<'today' | 'lines' | 'teams' | 'shops'>('today');
+  const { session, employees, firms, shops, links, lines, teams, orders, issues, debts, payments, setLineDriver, setLineCutoff, toggleTeamMember, setLinkManager, setLinkLine, confirmPayment, inviteEmployee, setLinkTerms, updateFirm, signOut } = useStore();
+  const [tab, setTab] = useState<'today' | 'lines' | 'teams' | 'shops' | 'people' | 'firm'>('today');
+  const [inv, setInv] = useState<{ name: string; role: 'manager' | 'staff' | 'driver'; department: string; phone: string }>({ name: '', role: 'driver', department: '', phone: '' });
+  const [code, setCode] = useState<string | null>(null);
+  const [minOrder, setMinOrder] = useState<string | null>(null);
   const [drivers, setDrivers] = useState<{ driver_id: string; name: string; checked_in: boolean; open_orders: number }[]>([]);
   useEffect(() => {
     if (tab === 'today') supabase.rpc('driver_load').then(({ data }) => setDrivers(data ?? []));
@@ -49,6 +53,8 @@ export default function Admin() {
             { value: 'lines', label: 'Գծեր' },
             { value: 'teams', label: 'Խմբեր' },
             { value: 'shops', label: 'Խանութներ' },
+            { value: 'people', label: 'Աշխատողներ' },
+            { value: 'firm', label: 'Ֆիրմա' },
           ]}
           value={tab}
           onChange={setTab}
@@ -111,6 +117,69 @@ export default function Admin() {
               </>
             );
           })()
+        ) : null}
+
+        {tab === 'people' ? (
+          <>
+            <Card style={{ gap: 10 }}>
+              <Text style={styles.strong}>Նոր աշխատող</Text>
+              <Field label="Անուն" value={inv.name} onChangeText={(v) => setInv({ ...inv, name: v })} />
+              <Chips
+                options={[{ value: 'manager', label: 'Մենեջեր' }, { value: 'staff', label: 'Ներքին աշխատող' }, { value: 'driver', label: 'Վարորդ' }]}
+                value={inv.role}
+                onChange={(v) => setInv({ ...inv, role: v as typeof inv.role })}
+              />
+              {inv.role === 'staff' ? <Field label="Բաժին (օր.՝ Պահեստ, Հաշվապահություն)" value={inv.department} onChangeText={(v) => setInv({ ...inv, department: v })} /> : null}
+              <Field label="Հեռախոս" value={inv.phone} onChangeText={(v) => setInv({ ...inv, phone: v })} keyboardType="phone-pad" />
+              <Button
+                label="Ստանալ հրավերի կոդ"
+                disabled={!inv.name.trim()}
+                onPress={async () => {
+                  const r = await inviteEmployee(inv.name.trim(), inv.role, inv.department, inv.phone);
+                  setError(r.error ?? null);
+                  if (r.code) { setCode(r.code); setInv({ name: '', role: 'driver', department: '', phone: '' }); }
+                }}
+              />
+              {code ? (
+                <View style={{ backgroundColor: colors.primarySoft, borderRadius: 12, padding: 12, gap: 4 }}>
+                  <Text style={styles.body}>Հրավերի կոդը՝</Text>
+                  <CopyRow label="Կոդ" value={code} />
+                  <Text style={styles.muted}>Աշխատողը բացում է հավելվածը → «Գրանցվել» → «Աշխատող եմ» → գրում է այս կոդը</Text>
+                </View>
+              ) : null}
+            </Card>
+            {staff.map((e) => (
+              <View key={e.id} style={[styles.card, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
+                <Text style={[styles.strong, { flex: 1 }]}>{e.name}</Text>
+                <Text style={styles.muted}>{roleName(e.role, e.department)}</Text>
+              </View>
+            ))}
+          </>
+        ) : null}
+
+        {tab === 'firm' ? (
+          <Card style={{ gap: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <Logo name={firm.name} uri={firm.logoUrl} bg={firm.color.bg} fg={firm.color.fg} size={64} />
+              <Button
+                kind="outline"
+                label="Փոխել լոգոն"
+                onPress={async () => {
+                  const r = await pickAndUpload(`firm/${firm.id}`);
+                  if (r.url) run(updateFirm({ logo_url: r.url }));
+                  if (r.error) setError(r.error);
+                }}
+              />
+            </View>
+            <Field
+              label="Նվազագույն պատվեր, ֏"
+              value={minOrder ?? String(firm.minOrderAmount ?? 0)}
+              onChangeText={(v) => setMinOrder(v.replace(/\D/g, ''))}
+              keyboardType="number-pad"
+            />
+            <Button label="Պահել" disabled={minOrder === null} onPress={() => { run(updateFirm({ min_order_amount: Number(minOrder || 0) })); setMinOrder(null); }} />
+            <Button kind="dark" label="Ապրանքներ →" onPress={() => router.push('/firm/products')} />
+          </Card>
         ) : null}
 
         {tab === 'lines'
@@ -183,6 +252,18 @@ export default function Admin() {
                     options={firmLines.map((x) => ({ value: x.id, label: x.name }))}
                     value={l.lineId ?? null}
                     onChange={(v) => run(setLinkLine(l.shopId, l.firmId, v))}
+                  />
+                  <Text style={styles.muted}>Զեղչ՝</Text>
+                  <Chips
+                    options={['0', '3', '5', '7', '10', '15'].map((v) => ({ value: v, label: `${v}%` }))}
+                    value={String(l.discountPct ?? 0)}
+                    onChange={(v) => run(setLinkTerms(l.shopId, l.firmId, Number(v), l.creditLimit ?? null))}
+                  />
+                  <Text style={styles.muted}>Պարտքի սահմանաչափ՝</Text>
+                  <Chips
+                    options={[{ value: 'none', label: 'Չկա' }, ...['100000', '300000', '500000', '1000000'].map((v) => ({ value: v, label: formatAmd(Number(v)) }))]}
+                    value={l.creditLimit != null ? String(l.creditLimit) : 'none'}
+                    onChange={(v) => run(setLinkTerms(l.shopId, l.firmId, l.discountPct ?? 0, v === 'none' ? null : Number(v)))}
                   />
                 </View>
               );

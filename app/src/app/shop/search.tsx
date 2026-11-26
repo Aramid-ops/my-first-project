@@ -97,7 +97,7 @@ export default function Search() {
               accessibilityRole="button"
               onPress={() => (link?.status === 'active' ? router.push(`/shop/supplier/${f.id}`) : undefined)}
               style={[styles.card, { flexDirection: 'row', alignItems: 'center', gap: 12 }]}>
-              <Logo name={f.name} bg={f.color.bg} fg={f.color.fg} size={40} />
+              <Logo name={f.name} uri={f.logoUrl} bg={f.color.bg} fg={f.color.fg} size={40} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.strong}>{f.name}</Text>
                 <Text style={styles.muted}>{f.category}</Text>

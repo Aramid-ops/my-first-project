@@ -31,7 +31,7 @@ export default function ShopDebts() {
         {rows.map(({ firm, d }) => (
           <View key={firm.id} style={[styles.card, { gap: 8 }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <Logo name={firm.name} bg={firm.color.bg} fg={firm.color.fg} size={40} />
+              <Logo name={firm.name} uri={firm.logoUrl} bg={firm.color.bg} fg={firm.color.fg} size={40} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.strong}>{firm.name}</Text>
                 <Text style={styles.muted}>Առաքված՝ {formatAmd(d?.delivered ?? 0)} · վճարված՝ {formatAmd(d?.paid ?? 0)}</Text>

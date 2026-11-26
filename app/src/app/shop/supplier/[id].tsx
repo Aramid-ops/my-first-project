@@ -1,4 +1,5 @@
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
+import { Image } from 'expo-image';
 import { useState } from 'react';
 import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
@@ -10,7 +11,7 @@ import { Button, Logo, Pill, Screen, styles } from '@/lib/ui';
 
 export default function SupplierCatalog() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { session, firms, links, employees, products, cart, setQty, deliveryDate, cutoffOf } = useStore();
+  const { session, firms, links, employees, products, cart, setQty, deliveryDate, cutoffOf, priceOf } = useStore();
   const [filter, setFilter] = useState('');
   if (session?.kind !== 'shop') return <Redirect href="/" />;
   const firm = firms.find((f) => f.id === id);
@@ -26,7 +27,7 @@ export default function SupplierCatalog() {
         <Pressable accessibilityRole="button" accessibilityLabel="Հետ" onPress={() => router.back()} style={backBtn}>
           <Text style={{ fontSize: 20 }}>‹</Text>
         </Pressable>
-        <Logo name={firm.name} bg={firm.color.bg} fg={firm.color.fg} size={44} />
+        <Logo name={firm.name} uri={firm.logoUrl} bg={firm.color.bg} fg={firm.color.fg} size={44} />
         <View style={{ flex: 1 }}>
           <Text style={[styles.strong, { fontSize: 18 }]}>{firm.name}</Text>
           <Text style={styles.muted}>
@@ -59,6 +60,7 @@ export default function SupplierCatalog() {
           const qty = cart[p.id] ?? 0;
           return (
             <View key={p.id} style={[styles.card, { gap: 6, opacity: p.inStock ? 1 : 0.55 }]}>
+              {p.imageUrl ? <Image source={{ uri: p.imageUrl }} style={{ width: '100%', height: 140, borderRadius: radius.md }} contentFit="cover" accessibilityLabel={p.name} /> : null}
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
                 <Text style={[styles.strong, { flex: 1 }]}>{p.name}</Text>
                 {p.sku ? <Text style={{ fontSize: 12, fontWeight: '700', color: colors.dark }}>{p.sku}</Text> : null}
@@ -70,7 +72,7 @@ export default function SupplierCatalog() {
               </Text>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
                 <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }}>
-                  {formatAmd(p.price)} / {p.unit}
+                  {formatAmd(priceOf(p))} / {p.unit}
                 </Text>
                 {p.inStock ? (
                   <View style={stepper}>

@@ -7,7 +7,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { registerPush } from './push';
 import { nextDeliveryDate, toISODate } from './rules';
 import { supabase } from './supabase';
-import type { Debt, Employee, EmployeeRole, Firm, Issue, IssueKind, Line, Order, OrderStatus, Payment, Product, Shop, ShopFirmLink, Team, Unit, Weekday } from './types';
+import type { Debt, Employee, SavedList, EmployeeRole, Firm, Issue, IssueKind, Line, Order, OrderStatus, Payment, Product, Shop, ShopFirmLink, Team, Unit, Weekday } from './types';
 
 export type Session =
   | { kind: 'shop'; shopId: string }
@@ -33,12 +33,22 @@ interface Store {
   issues: Issue[];
   debts: Debt[];
   payments: Payment[];
+  savedLists: SavedList[];
+  /** Խանութի իրական գինը (զեղչով / անհատական) */
+  priceOf: (p: Product) => number;
   reload: () => Promise<void>;
+  saveProduct: (p: Partial<Product> & { firmId: string }) => Promise<string | null>;
+  inviteEmployee: (name: string, role: EmployeeRole, department: string, phone: string) => Promise<{ code?: string; error?: string }>;
+  setLinkTerms: (shopId: string, firmId: string, discountPct: number, creditLimit: number | null) => Promise<string | null>;
+  updateFirm: (patch: Record<string, unknown>) => Promise<string | null>;
+  saveList: (name: string) => Promise<string | null>;
+  applyList: (list: SavedList) => number;
+  deleteList: (id: string) => Promise<void>;
 
   requestJoin: (firmId: string) => Promise<string | null>;
   acceptRequest: (shopId: string, lineId: string | null) => Promise<string | null>;
   updateShop: (patch: Record<string, string>) => Promise<string | null>;
-  reportIssue: (orderId: string, productId: string, kind: IssueKind, qty: number | null, note: string) => Promise<string | null>;
+  reportIssue: (orderId: string, productId: string, kind: IssueKind, qty: number | null, note: string, photoUrl?: string) => Promise<string | null>;
   markPaid: (firmId: string, amount: number, note: string) => Promise<string | null>;
   confirmPayment: (paymentId: string) => Promise<string | null>;
   setInvoice: (orderId: string, num: string) => Promise<string | null>;
@@ -89,6 +99,8 @@ const mapFirm = (r: any): Firm => ({
   color: colorFor(r.id),
   baseLat: r.base_lat ?? undefined,
   baseLng: r.base_lng ?? undefined,
+  featuredUntil: r.featured_until ?? undefined,
+  minOrderAmount: r.min_order_amount == null ? undefined : Number(r.min_order_amount),
 });
 const mapEmployee = (r: any): Employee => ({
   id: r.id,
@@ -113,7 +125,7 @@ const mapShop = (r: any): Shop => ({
   email: r.email ?? undefined,
   contactPerson: r.contact_person ?? undefined,
 });
-const mapLink = (r: any): ShopFirmLink => ({ shopId: r.shop_id, firmId: r.firm_id, managerId: r.manager_id, status: r.status, deliveryDays: (r.delivery_days ?? []) as Weekday[], lineId: r.line_id ?? undefined });
+const mapLink = (r: any): ShopFirmLink => ({ shopId: r.shop_id, firmId: r.firm_id, managerId: r.manager_id, status: r.status, deliveryDays: (r.delivery_days ?? []) as Weekday[], lineId: r.line_id ?? undefined, discountPct: Number(r.discount_pct ?? 0), creditLimit: r.credit_limit == null ? undefined : Number(r.credit_limit) });
 const mapLine = (r: any): Line => ({ id: r.id, firmId: r.firm_id, teamId: r.team_id ?? undefined, name: r.name, deliveryDays: (r.delivery_days ?? []) as Weekday[], driverId: r.driver_id ?? undefined, orderCutoff: r.order_cutoff ? String(r.order_cutoff).slice(0, 5) : undefined });
 const mapProduct = (r: any): Product => ({
   id: r.id,
@@ -162,6 +174,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [issues, setIssues] = useState<Issue[]>([]);
   const [debts, setDebts] = useState<Debt[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [savedLists, setSavedLists] = useState<SavedList[]>([]);
+  const [prices, setPrices] = useState<Record<string, number>>({});
   const [cart, setCart] = useState<Record<string, number>>({});
 
   useEffect(() => {
@@ -189,7 +203,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       supabase.from('payments').select('*').order('marked_paid_by_shop_at', { ascending: false }),
     ]);
     /* eslint-disable @typescript-eslint/no-explicit-any */
-    setIssues((iss.data ?? []).map((r: any) => ({ id: r.id, orderId: r.order_id, productId: r.product_id ?? undefined, kind: r.kind, qty: r.qty == null ? undefined : Number(r.qty), note: r.note ?? undefined, createdAt: r.created_at })));
+    setIssues((iss.data ?? []).map((r: any) => ({ id: r.id, orderId: r.order_id, productId: r.product_id ?? undefined, kind: r.kind, qty: r.qty == null ? undefined : Number(r.qty), note: r.note ?? undefined, photoUrl: r.photo_url ?? undefined, createdAt: r.created_at })));
     setDebts((dbt.data ?? []).map((r: any) => ({ shopId: r.shop_id, firmId: r.firm_id, delivered: Number(r.delivered), paid: Number(r.paid), pending: Number(r.pending), debt: Number(r.debt) })));
     setPayments((pay.data ?? []).map((r: any) => ({ id: r.id, shopId: r.shop_id, firmId: r.firm_id, amount: Number(r.amount), confirmed: !!r.confirmed_at, markedAt: r.marked_paid_by_shop_at ?? undefined, note: r.note ?? undefined })));
     /* eslint-enable @typescript-eslint/no-explicit-any */
@@ -256,6 +270,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setLinks((l.data ?? []).map(mapLink));
     setProducts((p.data ?? []).map(mapProduct));
     setOrders((o.data ?? []).map(mapOrder));
+    if (snap.session?.kind === 'shop') {
+      const firmIds = snap.links.filter((x: ShopFirmLink) => x.status === 'active').map((x: ShopFirmLink) => x.firmId);
+      const [pr, sl] = await Promise.all([
+        Promise.all(firmIds.map((fid: string) => supabase.rpc('my_prices', { p_firm: fid }))),
+        supabase.from('saved_lists').select('*').order('created_at', { ascending: false }),
+      ]);
+      const map: Record<string, number> = {};
+      for (const r of pr) for (const row of (r.data ?? []) as { product_id: string; price: number }[]) map[row.product_id] = Number(row.price);
+      setPrices(map);
+      setSavedLists(((sl.data ?? []) as { id: string; name: string; items: { product_id: string; qty: number }[] }[]).map((x) => ({ id: x.id, name: x.name, items: x.items.map((i) => ({ productId: i.product_id, qty: Number(i.qty) })) })));
+    }
     setSession(snap.session);
     setReady(true);
   }, [auth]);
@@ -308,7 +333,69 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       issues,
       debts,
       payments,
+      savedLists,
+      priceOf: (p) => prices[p.id] ?? p.price,
       reload,
+      saveProduct: async (p) => {
+        const row = {
+          firm_id: p.firmId,
+          name: p.name,
+          unit: p.unit,
+          pack_note: p.packNote || null,
+          price: p.price,
+          min_qty: p.minQty,
+          step: p.step,
+          weighed: !!p.weighed,
+          in_stock: p.inStock ?? true,
+          image_url: p.imageUrl || null,
+        };
+        const { error } = p.id ? await supabase.from('products').update(row).eq('id', p.id) : await supabase.from('products').insert(row);
+        await reload();
+        return error?.message ?? null;
+      },
+      inviteEmployee: async (name, role, department, phone) => {
+        const { data, error } = await supabase.rpc('invite_employee', { p_name: name, p_role: role, p_department: department, p_phone: phone });
+        await reload();
+        return error ? { error: error.message } : { code: data as string };
+      },
+      setLinkTerms: async (shopId, firmId, discountPct, creditLimit) => {
+        const { error } = await supabase.from('shop_firm_links').update({ discount_pct: discountPct, credit_limit: creditLimit }).eq('shop_id', shopId).eq('firm_id', firmId);
+        await reload();
+        return error?.message ?? null;
+      },
+      updateFirm: async (patch) => {
+        if (session?.kind !== 'employee') return 'Միայն ղեկավարը';
+        const me = employees.find((x) => x.id === session.employeeId);
+        const { error } = await supabase.from('firms').update(patch).eq('id', me!.firmId);
+        await reload();
+        return error?.message ?? null;
+      },
+      saveList: async (name) => {
+        if (session?.kind !== 'shop') return 'Մուտք գործեք որպես խանութ';
+        const items = Object.entries(cart).map(([product_id, qty]) => ({ product_id, qty }));
+        const { error } = await supabase.from('saved_lists').insert({ shop_id: session.shopId, name, items });
+        await reload();
+        return error?.message ?? null;
+      },
+      applyList: (list) => {
+        let n = 0;
+        setCart((c) => {
+          const next = { ...c };
+          for (const it of list.items) {
+            const p = products.find((x) => x.id === it.productId);
+            if (p?.inStock) {
+              next[p.id] = it.qty;
+              n++;
+            }
+          }
+          return next;
+        });
+        return n;
+      },
+      deleteList: async (id) => {
+        await supabase.from('saved_lists').delete().eq('id', id);
+        await reload();
+      },
       requestJoin: async (firmId) => {
         const { error } = await supabase.rpc('request_join', { p_firm: firmId });
         await reload();
@@ -334,8 +421,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         await reload();
         return error?.message ?? null;
       },
-      reportIssue: async (orderId, productId, kind, qty, note) => {
-        const { error } = await supabase.from('order_issues').insert({ order_id: orderId, product_id: productId, kind, qty, note: note || null });
+      reportIssue: async (orderId, productId, kind, qty, note, photoUrl) => {
+        const { error } = await supabase.from('order_issues').insert({ order_id: orderId, product_id: productId, kind, qty, note: note || null, photo_url: photoUrl ?? null });
         await reload();
         return error?.message ?? null;
       },
@@ -490,7 +577,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         await reload();
       },
     };
-  }, [ready, session, auth, firms, employees, shops, links, products, orders, teams, lines, issues, debts, payments, cart, reload]);
+  }, [ready, session, auth, firms, employees, shops, links, products, orders, teams, lines, issues, debts, payments, savedLists, prices, cart, reload]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

@@ -13,6 +13,8 @@ export default function SignUp() {
   const [f, setF] = useState({ name: '', legal_name: '', tax_id: '', district: '', address: '', phone: '', contact_person: '', email: '', password: '' });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [kind, setKind] = useState<'shop' | 'employee'>('shop');
+  const [code, setCode] = useState('');
   const set = (k: keyof typeof f) => (v: string) => setF({ ...f, [k]: v });
 
   const problem =
@@ -27,7 +29,29 @@ export default function SignUp() {
   return (
     <Screen>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 12, paddingBottom: 40 }}>
-        <Title sub="Մեկ անգամ, և մատակարարները կտեսնեն ձեր տվյալները">Խանութի գրանցում</Title>
+        <Title sub={kind === 'shop' ? 'Մեկ անգամ, և մատակարարները կտեսնեն ձեր տվյալները' : 'Ղեկավարից ստացած 6-նիշ կոդով'}>Գրանցում</Title>
+        <Chips options={[{ value: 'shop', label: 'Խանութ / ռեստորան' }, { value: 'employee', label: 'Աշխատող եմ (ունեմ կոդ)' }]} value={kind} onChange={setKind} />
+        {kind === 'employee' ? (
+          <Card style={{ gap: 12 }}>
+            <Field label="Հրավերի կոդ" value={code} onChangeText={(v) => setCode(v.replace(/\D/g, '').slice(0, 6))} keyboardType="number-pad" />
+            <Field label="Էլ. փոստ" value={f.email} onChangeText={set('email')} keyboardType="email-address" />
+            <Field label="Գաղտնաբառ" value={f.password} onChangeText={set('password')} secure />
+            {msg ? <Text style={{ color: msg.ok ? colors.primary : colors.warnText, textAlign: 'center' }}>{msg.text}</Text> : null}
+            <Button
+              label={busy ? 'Գրանցում…' : 'Գրանցվել'}
+              disabled={busy || code.length !== 6 || !/^\S+@\S+\.\S+$/.test(f.email) || f.password.length < 8}
+              onPress={async () => {
+                setBusy(true);
+                const { data: res, error } = await supabase.auth.signUp({ email: f.email.trim(), password: f.password, options: { data: { kind: 'employee', code } } });
+                setBusy(false);
+                if (error) setMsg({ ok: false, text: error.message });
+                else if (!res.session) setMsg({ ok: true, text: 'Հաստատեք էլ. փոստը (նամակ ենք ուղարկել), հետո մուտք գործեք' });
+                else router.replace('/');
+              }}
+            />
+          </Card>
+        ) : null}
+        {kind === 'shop' ? (<>
         <Card style={{ gap: 12 }}>
           <Field label="Ցուցանակի անուն (օր.՝ Սրճարան «Կետ»)" value={f.name} onChangeText={set('name')} />
           <Field label="Իրավաբանական անվանում (օր.՝ «Կետ» ՍՊԸ)" value={f.legal_name} onChangeText={set('legal_name')} />
@@ -64,6 +88,7 @@ export default function SignUp() {
             else router.replace('/');
           }}
         />
+        </>) : null}
         <Button kind="outline" label="Արդեն ունեմ հաշիվ" onPress={() => router.replace('/')} />
       </ScrollView>
     </Screen>

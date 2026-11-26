@@ -3,6 +3,7 @@ import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { pickAndUpload } from '@/lib/media';
 import { formatQty, formatTime } from '@/lib/rules';
 import { useStore } from '@/lib/store';
 import { colors, radius } from '@/lib/theme';
@@ -17,6 +18,7 @@ export default function ShopOrder() {
   const [qty, setQty] = useState('');
   const [note, setNote] = useState('');
   const [msg, setMsg] = useState<string | null>(null);
+  const [photo, setPhoto] = useState<string | undefined>();
   if (session?.kind !== 'shop') return <Redirect href="/" />;
   const o = orders.find((x) => x.id === id);
   if (!o) return <Redirect href="/shop/orders" />;
@@ -73,12 +75,22 @@ export default function ShopOrder() {
                       <TextInput accessibilityLabel="Քանակ" placeholder="Քանակ" value={qty} onChangeText={(v) => setQty(v.replace(/[^\d.]/g, ''))} keyboardType="decimal-pad" style={input} />
                       <TextInput accessibilityLabel="Նշում" placeholder="Նշում (ըստ ցանկության)" value={note} onChangeText={setNote} style={[input, { flex: 1 }]} />
                     </View>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={async () => {
+                        const r = await pickAndUpload(`shop/${o.shopId}`);
+                        if (r.url) setPhoto(r.url);
+                        if (r.error) setMsg(r.error);
+                      }}
+                      style={{ minHeight: 44, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.borderStrong, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card }}>
+                      <Text>{photo ? '📷 Լուսանկարը կցված է ✓' : '📷 Կցել լուսանկար'}</Text>
+                    </Pressable>
                     <Button
                       label="Ուղարկել մենեջերին և վարորդին"
                       onPress={async () => {
-                        const err = await reportIssue(o.id, it.productId, kind, qty ? Number(qty) : null, note);
+                        const err = await reportIssue(o.id, it.productId, kind, qty ? Number(qty) : null, note, photo);
                         setMsg(err);
-                        if (!err) { setOpenItem(null); setQty(''); setNote(''); }
+                        if (!err) { setOpenItem(null); setQty(''); setNote(''); setPhoto(undefined); }
                       }}
                     />
                     {msg ? <Text style={{ color: colors.warnText }}>{msg}</Text> : null}

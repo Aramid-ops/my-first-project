@@ -1,5 +1,5 @@
 // Վարորդի օրերի ամփոփում՝ պատվերների պատմությունից (աշխատում է նաև առանց ինտերնետի)
-import { estimateKm, type Point } from './geo';
+import { estimateKm, type Point } from './distance';
 import { toISODate } from './rules';
 import type { Order } from './types';
 

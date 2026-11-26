@@ -1,6 +1,7 @@
 // Մենեջեր և ներքին աշխատողներ (օֆիս, առաքման բաժին, պահեստ, հաշվապահ)
 // Մենեջեր՝ Պատվերներ · Հայտեր · Իմ խանութները
 // Ներքին աշխատող՝ Պատվերներ · Վճարումներ
+import { Image } from 'expo-image';
 import { Redirect, router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
@@ -57,8 +58,13 @@ export default function Inbox() {
         </Pressable>
       </View>
       <Title sub={`${firm.name} · ${roleLabel}`}>Բարև, {me.name}</Title>
-      <View style={{ marginBottom: 12 }}>
+      <View style={{ marginBottom: 12, gap: 8 }}>
         <Chips options={tabs} value={tab} onChange={setTab} />
+        {me.role === 'staff' ? (
+          <Pressable accessibilityRole="button" onPress={() => router.push('/firm/products')} hitSlop={8}>
+            <Text style={{ color: colors.primary, fontWeight: '600' }}>Ապրանքներ և գներ →</Text>
+          </Pressable>
+        ) : null}
       </View>
 
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 10, paddingBottom: 24 }}>
@@ -73,6 +79,7 @@ export default function Inbox() {
                     {issueLabel[i.kind].toLowerCase()}
                   </Text>
                   {i.note ? <Text style={styles.muted}>{i.note}</Text> : null}
+                  {i.photoUrl ? <Image source={{ uri: i.photoUrl }} style={{ width: 120, height: 90, borderRadius: 8, marginTop: 6 }} contentFit="cover" accessibilityLabel="Խնդրի լուսանկար" /> : null}
                 </View>
               );
             })}

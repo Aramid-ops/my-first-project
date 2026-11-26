@@ -7,12 +7,15 @@ import { colors } from '@/lib/theme';
 import { Button, Logo, Screen, styles, Title } from '@/lib/ui';
 
 export default function ShopHome() {
-  const { session, shops, links, firms, employees, cart, orders, signOut, deliveryDate } = useStore();
+  const { session, shops, links, firms, employees, cart, orders, signOut, deliveryDate, savedLists, applyList, requestJoin } = useStore();
   if (session?.kind !== 'shop') return <Redirect href="/" />;
   const shop = shops.find((s) => s.id === session.shopId)!;
   if (!shop) return <Redirect href="/" />;
   const myLinks = links.filter((l) => l.shopId === shop.id && l.status === 'active');
   const pending = links.filter((l) => l.shopId === shop.id && l.status === 'pending');
+  // Վճարող («առաքարկվող») մատակարարները միշտ երևում են վերևում
+  const today = new Date().toISOString().slice(0, 10);
+  const featured = firms.filter((f) => f.featuredUntil && f.featuredUntil >= today);
   const cartCount = Object.keys(cart).length;
   const myOrders = orders.filter((o) => o.shopId === shop.id).length;
 
@@ -29,7 +32,7 @@ export default function ShopHome() {
           </Pressable>
         </View>
       </View>
-      <Title sub={shop.name}>Իմ մատակարարները</Title>
+      <Title sub={shop.name}>Բարի օր</Title>
       <Pressable
         accessibilityRole="search"
         accessibilityLabel="Որոնում"
@@ -40,6 +43,42 @@ export default function ShopHome() {
       </Pressable>
 
       <ScrollView contentContainerStyle={{ gap: 10, paddingBottom: 24 }}>
+        {featured.length ? <Text style={[styles.strong, { fontSize: 14, color: colors.textMuted }]}>Առաջարկվող մատակարարներ</Text> : null}
+        {featured.length ? (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            {featured.map((f) => {
+              const st = links.find((l) => l.shopId === shop.id && l.firmId === f.id)?.status;
+              return (
+                <Pressable
+                  key={f.id}
+                  accessibilityRole="button"
+                  onPress={() => (st === 'active' ? router.push(`/shop/supplier/${f.id}`) : st ? undefined : requestJoin(f.id))}
+                  style={[styles.card, { width: '47%', flexGrow: 1, alignItems: 'flex-start', gap: 8 }]}>
+                  <Logo name={f.name} uri={f.logoUrl} bg={f.color.bg} fg={f.color.fg} size={48} />
+                  <Text style={styles.strong}>{f.name}</Text>
+                  <Text style={styles.muted}>{f.category}</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: st === 'active' ? colors.primary : colors.infoText }}>
+                    {st === 'active' ? 'Պատվիրել →' : st === 'pending' ? 'Հայտը ուղարկված է' : '+ Միանալ'}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
+
+        {savedLists.length ? <Text style={[styles.strong, { fontSize: 14, color: colors.textMuted }]}>Իմ ցուցակները</Text> : null}
+        {savedLists.map((l) => (
+          <Pressable
+            key={l.id}
+            accessibilityRole="button"
+            onPress={() => { applyList(l); router.push('/shop/cart'); }}
+            style={[styles.card, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
+            <Text style={[styles.strong, { flex: 1 }]}>📋 {l.name}</Text>
+            <Text style={styles.muted}>{l.items.length} ապրանք · Զամբյուղ →</Text>
+          </Pressable>
+        ))}
+
+        {myLinks.length ? <Text style={[styles.strong, { fontSize: 14, color: colors.textMuted }]}>Իմ մատակարարները</Text> : null}
         {myLinks.length === 0 && pending.length === 0 ? (
           <Text style={styles.muted}>Գտեք մատակարարին որոնումով և սեղմեք «Միանալ»</Text>
         ) : null}
@@ -58,7 +97,7 @@ export default function ShopHome() {
               accessibilityRole="button"
               onPress={() => router.push(`/shop/supplier/${f.id}`)}
               style={({ pressed }) => [styles.card, { flexDirection: 'row', alignItems: 'center', gap: 14, opacity: pressed ? 0.8 : 1 }]}>
-              <Logo name={f.name} bg={f.color.bg} fg={f.color.fg} size={56} />
+              <Logo name={f.name} uri={f.logoUrl} bg={f.color.bg} fg={f.color.fg} size={56} />
               <View style={{ flex: 1, gap: 3 }}>
                 <Text style={styles.strong}>{f.name}</Text>
                 {m ? <Text style={styles.muted}>Մենեջեր՝ {m.name}</Text> : null}

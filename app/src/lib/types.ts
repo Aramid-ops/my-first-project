@@ -12,6 +12,9 @@ export interface Firm {
   /** Ֆիրմայի բազա (պահեստ)՝ կանգառները մոտիկից հեռու շարելու համար */
   baseLat?: number;
   baseLng?: number;
+  /** Վճարովի «առաջարկվող» տեղը՝ մինչև այս օրը */
+  featuredUntil?: string;
+  minOrderAmount?: number;
 }
 
 export type EmployeeRole = 'admin' | 'manager' | 'staff' | 'driver';
@@ -52,6 +55,14 @@ export interface ShopFirmLink {
   /** Գծի օրեր այս խանութի համար; դատարկ = ամեն օր (եթե կա գիծ՝ վերցվում է գծից) */
   deliveryDays: Weekday[];
   lineId?: string;
+  discountPct?: number;
+  creditLimit?: number;
+}
+
+export interface SavedList {
+  id: string;
+  name: string;
+  items: { productId: string; qty: number }[];
 }
 
 /** Ֆիրմայի աշխատողների խումբ. մեկ աշխատող կարող է լինել մի քանիսում */
@@ -84,6 +95,7 @@ export interface Issue {
   kind: IssueKind;
   qty?: number;
   note?: string;
+  photoUrl?: string;
   createdAt: string;
 }
 
@@ -106,7 +118,8 @@ export interface Payment {
   note?: string;
 }
 
-export type Unit = 'հատ' | 'կգ' | 'գ' | 'լ' | 'մ' | 'տուփ' | 'բլոկ' | 'արկղ';
+export type Unit = 'հատ' | 'կգ' | 'գ' | 'լ' | 'մլ' | 'մ' | 'տուփ' | 'բլոկ' | 'արկղ';
+export const units: Unit[] = ['հատ', 'կգ', 'գ', 'լ', 'մլ', 'մ', 'տուփ', 'բլոկ', 'արկղ'];
 
 export interface Product {
   id: string;

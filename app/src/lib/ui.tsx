@@ -1,5 +1,6 @@
 // Փոքր, կրկնվող UI մասեր
 import * as Clipboard from 'expo-clipboard';
+import { Image } from 'expo-image';
 import { useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -28,7 +29,8 @@ export function Card({ children, style }: { children: ReactNode; style?: ViewSty
 }
 
 /** Լոգո կամ գունավոր տառ */
-export function Logo({ name, bg, fg, size = 52 }: { name: string; bg: string; fg: string; size?: number }) {
+export function Logo({ name, bg, fg, size = 52, uri }: { name: string; bg: string; fg: string; size?: number; uri?: string }) {
+  if (uri) return <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size * 0.28 }} contentFit="cover" accessibilityLabel={name} />;
   return (
     <View style={[styles.logo, { width: size, height: size, borderRadius: size * 0.28, backgroundColor: bg }]}>
       <Text style={{ color: fg, fontWeight: '700', fontSize: size * 0.4 }}>{name.slice(0, 1)}</Text>

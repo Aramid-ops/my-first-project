@@ -1,6 +1,6 @@
 // Կանգառների ավտոմատ հերթականություն. ֆիրմայի բազայից սկսած՝ ամեն անգամ ամենամոտ հաջորդ խանութը
 // («մոտակա հարևան» մեթոդ)։ Կոորդինատ չունեցող խանութները՝ վերջում։
-import { haversineKm, type Point } from './geo';
+import { haversineKm, type Point } from './distance';
 
 export function orderByNearest<T>(items: T[], pointOf: (x: T) => Point | null, start: Point | null): T[] {
   const withP = items.map((x) => ({ x, p: pointOf(x) }));
