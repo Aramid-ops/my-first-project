@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import { driverDays, earlierThanUsualMin } from '../src/lib/driver-stats';
 import { orderByNearest } from '../src/lib/route';
 import { decQty, incQty, isValidQty, nextDeliveryDate } from '../src/lib/rules';
-import { matches, searchSkeleton } from '../src/lib/search';
+import { matches, searchSkeleton, startsWithWord } from '../src/lib/search';
 import type { Product } from '../src/lib/types';
 
 test('որոնում. հայերեն / ռուսերեն / լատինատառ նույն արդյունքն են տալիս', () => {
@@ -20,6 +20,9 @@ test('որոնում. հայերեն / ռուսերեն / լատինատառ ն�
   assert.ok(matches('Կաթ 3.2%, 1 լ', 'кат'));
   assert.ok(matches('Հեղուկ օճառ', 'hexuk'));
   assert.ok(!matches('Լավաշ', 'կաթ'));
+  assert.ok(startsWithWord('Աթենք', 'աթ'));
+  assert.ok(!startsWithWord('Կաթնաշխարհ', 'աթ'));
+  assert.ok(startsWithWord('Սրճարան «Կետ»', 'кет'));
 });
 
 const toilet = { id: 'p', firmId: 'f', name: 't', unit: 'հատ', price: 150, minQty: 30, step: 30, inStock: true } as Product;

@@ -7,7 +7,7 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
 
-import { matches } from '@/lib/search';
+import { startsWithWord } from '@/lib/search';
 import { supabase } from '@/lib/supabase';
 import { colors } from '@/lib/theme';
 import { Button, Card, Chips, Field, Screen, styles, Title } from '@/lib/ui';
@@ -73,7 +73,7 @@ export default function SignUp() {
   // Ֆիրմայի ընտրություն. մենեջերի համար՝ բոլորը, ֆիրմայի համար՝ միայն դեռ չգրանցվածները (մենեջերների ստեղծած)
   const firmOptions = firms
     .filter((x) => (kind === 'firm' ? x.status === 'unclaimed' : true))
-    .filter((x) => !firmQuery.trim() || matches(x.name, firmQuery))
+    .filter((x) => !firmQuery.trim() || startsWithWord(x.name, firmQuery))
     .slice(0, 12);
 
   return (
@@ -142,23 +142,32 @@ export default function SignUp() {
 
         {kind === 'manager' || kind === 'firm' ? (
           <Card style={{ gap: 12 }}>
-            {kind === 'manager' ? (
-              <Text style={styles.muted}>Ո՞ր ֆիրմայի մենեջերն եք. ընտրեք ցուցակից կամ գրեք անունը, եթե չկա</Text>
-            ) : firmOptions.length ? (
-              <Text style={styles.muted}>Եթե ձեր մենեջերներն արդեն գրանցված են, ընտրեք ձեր ֆիրման. նրանք, իրենց խանութներն ու պատվերները կմնան ձեզ մոտ</Text>
-            ) : null}
-            {kind === 'manager' || firmOptions.length ? (
-              <>
-                <Field label="Փնտրել ֆիրմա" value={firmQuery} onChangeText={setFirmQuery} />
-                <Chips
-                  options={firmOptions.map((x) => ({ value: x.id, label: x.name }))}
-                  value={f.firm_id}
-                  onChange={(id) => setF((x) => ({ ...x, firm_id: x.firm_id === id ? '' : id, firm_name: kind === 'firm' ? firms.find((y) => y.id === id)?.name ?? x.firm_name : '' }))}
-                />
-              </>
-            ) : null}
-            {kind === 'firm' || !f.firm_id ? (
-              <Field label={kind === 'firm' ? 'Ֆիրմայի անուն' : 'Կամ գրեք ֆիրմայի անունը'} value={f.firm_name} onChangeText={set('firm_name')} />
+            {/* Մեկ դաշտ. գրում եք անունը → ներքևում՝ համապատասխան ֆիրմաները. սեղմեք, եթե ձերն է; եթե չկա՝ գրածը կլինի նոր ֆիրմայի անունը */}
+            <Field
+              label={kind === 'manager' ? 'Ո՞ր ֆիրմայի մենեջերն եք' : 'Ֆիրմայի անուն'}
+              value={f.firm_name}
+              onChangeText={(v) => { setF((x) => ({ ...x, firm_name: v, firm_id: '' })); setFirmQuery(v); }}
+              placeholder="Սկսեք գրել անունը"
+            />
+            {f.firm_id ? (
+              <Text style={{ color: colors.primary, fontWeight: '600' }}>✓ Ընտրված է՝ {firms.find((x) => x.id === f.firm_id)?.name}</Text>
+            ) : firmQuery.trim() && firmOptions.length ? (
+              <View style={{ gap: 6 }}>
+                <Text style={styles.muted}>{kind === 'manager' ? 'Ձեր ֆիրման ցուցակում է՞ սեղմեք' : 'Ձեր մենեջերներն արդեն գրանցե՞լ են ֆիրման. սեղմեք, և նրանք կմնան ձեզ մոտ'}</Text>
+                {firmOptions.slice(0, 5).map((x) => (
+                  <Pressable
+                    key={x.id}
+                    accessibilityRole="button"
+                    onPress={() => setF((y) => ({ ...y, firm_id: x.id, firm_name: x.name }))}
+                    style={{ minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.card, paddingHorizontal: 14, justifyContent: 'center' }}>
+                    <Text style={styles.body}>
+                      {x.name}
+                      {x.category ? <Text style={styles.muted}> · {x.category}</Text> : null}
+                    </Text>
+                  </Pressable>
+                ))}
+                <Text style={styles.muted}>Եթե ցուցակում չկա, պարզապես շարունակեք. կստեղծվի նոր ֆիրմա «{f.firm_name.trim()}» անունով</Text>
+              </View>
             ) : null}
             {kind === 'firm' || !f.firm_id ? <Field label="Կատեգորիա (օր.՝ Կաթնամթերք)" value={f.category} onChangeText={set('category')} /> : null}
             {kind === 'firm' ? (

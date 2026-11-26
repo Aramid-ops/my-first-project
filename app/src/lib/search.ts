@@ -51,3 +51,11 @@ export function matches(text: string, query: string): boolean {
   if (!q) return true;
   return searchSkeleton(text).includes(q);
 }
+
+/** Համընկնում բառի սկզբից (անունների համար՝ «աթ» → «Աթենք», բայց ոչ «Կաթնաշխարհ») */
+export function startsWithWord(text: string, query: string): boolean {
+  const q = searchSkeleton(query);
+  if (!q) return true;
+  const t = searchSkeleton(text);
+  return t.startsWith(q) || t.includes(` ${q}`);
+}
