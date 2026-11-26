@@ -15,6 +15,8 @@ export interface Firm {
   /** Վճարովի «առաջարկվող» տեղը՝ մինչև այս օրը */
   featuredUntil?: string;
   minOrderAmount?: number;
+  /** 'unclaimed' = ֆիրման ինքը դեռ չի գրանցվել, աշխատում են նրա մենեջերները */
+  status?: 'active' | 'unclaimed';
 }
 
 export type EmployeeRole = 'admin' | 'manager' | 'staff' | 'driver';

@@ -24,14 +24,17 @@ export default function Inbox() {
   if (!me) return <Redirect href="/" />;
   const firm = s.firms.find((f) => f.id === me.firmId)!;
   const isManager = me.role === 'manager';
+  // Ունի՞ ֆիրման ուրիշ աշխատողներ / վարորդներ, որոնց կարելի է փոխանցել
+  const hasTeam = s.employees.some((e) => e.firmId === me.firmId && e.id !== me.id && (e.role === 'staff' || e.role === 'driver'));
   const roleLabel = isManager ? 'մենեջեր' : me.department ?? 'աշխատող';
 
   // Մենեջեր՝ իր խանութների նոր պատվերները; ներքին աշխատող՝ իրեն փոխանցվածները
+  const open = (st: string) => st === 'sent' || st === 'accepted' || (!hasTeam && (st === 'preparing' || st === 'on_the_way'));
   const waiting = isManager
-    ? s.orders.filter((o) => o.managerId === me.id && (o.status === 'sent' || o.status === 'accepted'))
+    ? s.orders.filter((o) => o.managerId === me.id && open(o.status))
     : s.orders.filter((o) => o.assigneeId === me.id && o.status === 'preparing');
   const done = isManager
-    ? s.orders.filter((o) => o.managerId === me.id && !(o.status === 'sent' || o.status === 'accepted'))
+    ? s.orders.filter((o) => o.managerId === me.id && !open(o.status))
     : s.orders.filter((o) => o.assigneeId !== me.id && o.events.some((ev) => ev.byName === me.name));
   const requests = s.links.filter((l) => l.firmId === me.firmId && l.status === 'pending');
   const myLinks = s.links.filter((l) => l.managerId === me.id && l.status === 'active');
@@ -60,7 +63,7 @@ export default function Inbox() {
       <Title sub={`${firm.name} · ${roleLabel}`}>Բարև, {me.name}</Title>
       <View style={{ marginBottom: 12, gap: 8 }}>
         <Chips options={tabs} value={tab} onChange={setTab} />
-        {me.role === 'staff' ? (
+        {me.role === 'staff' || (isManager && firm.status === 'unclaimed') ? (
           <Pressable accessibilityRole="button" onPress={() => router.push('/firm/products')} hitSlop={8}>
             <Text style={{ color: colors.primary, fontWeight: '600' }}>Ապրանքներ և գներ →</Text>
           </Pressable>
@@ -86,7 +89,24 @@ export default function Inbox() {
             <Text style={[styles.strong, { fontSize: 15 }]}>Նոր պատվերներ · {waiting.length}</Text>
             {waiting.length === 0 ? <Text style={styles.muted}>Նոր պատվեր չկա</Text> : null}
             {waiting.map((o) => (
-              <OrderCard key={o.id} order={o} action={isManager && o.status === 'sent' ? <Button label="Ընդունել" onPress={() => s.accept(o.id)} /> : <ForwardPicker order={o} />} withInvoice={!isManager} />
+              <OrderCard
+                key={o.id}
+                order={o}
+                withInvoice={!isManager || !hasTeam}
+                action={
+                  isManager && o.status === 'sent' ? (
+                    <Button label="Ընդունել" onPress={() => s.accept(o.id)} />
+                  ) : hasTeam ? (
+                    <ForwardPicker order={o} />
+                  ) : (
+                    // Ֆիրման դեռ վարորդներ / աշխատողներ չունի հավելվածում → մենեջերը ինքն է նշում
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <Button kind="outline" label="Ճանապարհին" onPress={() => s.setStatus(o.id, 'on_the_way')} style={{ flex: 1 }} />
+                      <Button label="Առաքված ✓" onPress={() => s.setStatus(o.id, 'delivered')} style={{ flex: 1 }} />
+                    </View>
+                  )
+                }
+              />
             ))}
             {done.length > 0 ? <Text style={[styles.strong, { fontSize: 15, marginTop: 8 }]}>Փոխանցված</Text> : null}
             {done.slice(0, 20).map((o) => (

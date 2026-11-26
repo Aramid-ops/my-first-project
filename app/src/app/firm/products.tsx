@@ -35,8 +35,10 @@ export default function FirmProducts() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const { firms } = useStore();
   const me = session?.kind === 'employee' ? employees.find((e) => e.id === session.employeeId) : undefined;
-  if (!me || !(me.role === 'admin' || me.role === 'staff')) return <Redirect href="/" />;
+  const unclaimed = firms.find((f) => f.id === me?.firmId)?.status === 'unclaimed';
+  if (!me || !(me.role === 'admin' || me.role === 'staff' || (me.role === 'manager' && unclaimed))) return <Redirect href="/" />;
   const list = products.filter((p) => p.firmId === me.firmId && (matches(p.name, filter) || (p.sku ?? '').toLowerCase().startsWith(filter.trim().toLowerCase())));
   const set = (patch: Partial<Draft>) => setDraft((d) => (d ? { ...d, ...patch } : d));
   const num = (v: string) => Number(v.replace(',', '.'));

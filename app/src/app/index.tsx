@@ -58,7 +58,7 @@ export default function SignIn() {
               }}
             />
             <Link href="/signup" style={{ textAlign: 'center', color: colors.primary, fontWeight: '600', paddingVertical: 8 }}>
-              Նոր խանութ եք. գրանցվել
+              Չունեք հաշիվ. գրանցվել
             </Link>
           </Card>
         )}

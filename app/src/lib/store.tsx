@@ -52,6 +52,8 @@ interface Store {
   markPaid: (firmId: string, amount: number, note: string) => Promise<string | null>;
   confirmPayment: (paymentId: string) => Promise<string | null>;
   setInvoice: (orderId: string, num: string) => Promise<string | null>;
+  /** Մենեջերը ինքն է առաքում (երբ ֆիրման վարորդներ չունի հավելվածում) */
+  setStatus: (orderId: string, status: 'on_the_way' | 'delivered') => Promise<string | null>;
   placeOrderForShop: (shopId: string, items: { productId: string; qty: number }[]) => Promise<string | null>;
   repeatOrder: (order: Order) => number;
   /** Առաքման հաջորդ օրը՝ գծի օրերով և վերջնաժամով */
@@ -101,6 +103,7 @@ const mapFirm = (r: any): Firm => ({
   baseLng: r.base_lng ?? undefined,
   featuredUntil: r.featured_until ?? undefined,
   minOrderAmount: r.min_order_amount == null ? undefined : Number(r.min_order_amount),
+  status: r.status ?? 'active',
 });
 const mapEmployee = (r: any): Employee => ({
   id: r.id,
@@ -434,6 +437,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
       confirmPayment: async (paymentId) => {
         const { error } = await supabase.from('payments').update({ confirmed_at: new Date().toISOString() }).eq('id', paymentId);
+        await reload();
+        return error?.message ?? null;
+      },
+      setStatus: async (orderId, status) => {
+        const { error } = await supabase.from('orders').update({ status }).eq('id', orderId);
+        if (!error) await addEvent(orderId, status === 'delivered' ? 'Առաքեց' : 'Մեկնեց');
         await reload();
         return error?.message ?? null;
       },

@@ -23,8 +23,9 @@ for f in supabase/migrations/*.sql; do
 import sys,re
 s=open(sys.argv[1],encoding='utf-8').read()
 s=s.replace('create extension if not exists pg_net;','')
-if 'storage.buckets' in s:
-    a=s.index('insert into storage.buckets'); b=s.index('-- Ֆիրմայի լոգո և տվյալներ'); s=s[:a]+s[b:]
+s=re.sub(r"insert into storage\.buckets[^;]*;", "", s)
+s=re.sub(r"drop policy if exists media_\w+ on storage\.objects;", "", s)
+s=re.sub(r"create policy media_\w+ on storage\.objects[\s\S]*?\);\n", "", s)
 print(s)
 PY
 done

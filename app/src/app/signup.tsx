@@ -1,94 +1,158 @@
-// Խանութի գրանցում՝ մեկ անգամ, ամբողջական տվյալներով (SPEC §4.3.1)
+// Գրանցում. 4 ճանապարհ (SPEC §4.3.2)։ Ամեն մեկից հարցնում ենք միայն այն, ինչ նա իրականում ունի։
+//   🏪 Խանութ / ռեստորան — ՀՎՀՀ, հասցե
+//   👔 Մատակարար (մենեջեր) — ընտրում է ֆիրման կամ գրում նորի անունը. ՀՎՀՀ և հասցե պետք չեն
+//   🏢 Ֆիրմա — իրավաբանական տվյալներ; կարող է «վերցնել» արդեն գրանցված մենեջերների ֆիրման
+//   🚚 Աշխատող — միայն հրավերի կոդ
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ScrollView, Text } from 'react-native';
 
+import { matches } from '@/lib/search';
 import { supabase } from '@/lib/supabase';
 import { colors } from '@/lib/theme';
 import { Button, Card, Chips, Field, Screen, styles, Title } from '@/lib/ui';
 
+type Kind = 'shop' | 'manager' | 'firm' | 'employee';
+type PubFirm = { id: string; name: string; category: string | null; status: string };
+
 const districts = ['Աջափնյակ', 'Ավան', 'Արաբկիր', 'Դավթաշեն', 'Էրեբունի', 'Կենտրոն', 'Մալաթիա-Սեբաստիա', 'Նոր Նորք', 'Նորք-Մարաշ', 'Նուբարաշեն', 'Շենգավիթ', 'Քանաքեռ-Զեյթուն'];
+const kinds: { value: Kind; label: string }[] = [
+  { value: 'shop', label: '🏪 Խանութ / ռեստորան' },
+  { value: 'manager', label: '👔 Մատակարար (մենեջեր)' },
+  { value: 'firm', label: '🏢 Ֆիրմա' },
+  { value: 'employee', label: '🚚 Աշխատող (կոդով)' },
+];
+
+const emailOk = (e: string) => /^\S+@\S+\.\S+$/.test(e);
+const phoneOk = (p: string) => p.replace(/\D/g, '').length >= 8;
 
 export default function SignUp() {
-  const [f, setF] = useState({ name: '', legal_name: '', tax_id: '', district: '', address: '', phone: '', contact_person: '', email: '', password: '' });
+  const [kind, setKind] = useState<Kind>('shop');
+  const [f, setF] = useState({
+    name: '', phone: '', email: '', password: '',
+    shop_name: '', legal_name: '', tax_id: '', district: '', address: '', contact_person: '',
+    firm_id: '', firm_name: '', category: '', code: '',
+  });
+  const [firms, setFirms] = useState<PubFirm[]>([]);
+  const [firmQuery, setFirmQuery] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [kind, setKind] = useState<'shop' | 'employee'>('shop');
-  const [code, setCode] = useState('');
-  const set = (k: keyof typeof f) => (v: string) => setF({ ...f, [k]: v });
+  const set = (k: keyof typeof f) => (v: string) => setF((x) => ({ ...x, [k]: v }));
 
+  useEffect(() => {
+    supabase.rpc('public_firms').then(({ data }) => setFirms((data ?? []) as PubFirm[]));
+  }, []);
+
+  const common = !f.name.trim() ? 'Լրացրեք անունը' : !phoneOk(f.phone) ? 'Լրացրեք հեռախոսը' : !emailOk(f.email) ? 'Լրացրեք էլ. փոստը' : f.password.length < 8 ? 'Գաղտնաբառը՝ առնվազն 8 նիշ' : null;
   const problem =
-    !f.name || !f.legal_name ? 'Լրացրեք անվանումները'
-    : !/^\d{8}$/.test(f.tax_id) ? 'ՀՎՀՀ-ն պետք է լինի 8 թիվ'
-    : !f.district || !f.address ? 'Լրացրեք հասցեն'
-    : f.phone.replace(/\D/g, '').length < 8 ? 'Լրացրեք հեռախոսը'
-    : !/^\S+@\S+\.\S+$/.test(f.email) ? 'Լրացրեք էլ. փոստը'
-    : f.password.length < 8 ? 'Գաղտնաբառը՝ առնվազն 8 նիշ'
-    : null;
+    kind === 'employee' ? (f.code.length !== 6 ? 'Գրեք 6-նիշ կոդը' : !emailOk(f.email) ? 'Լրացրեք էլ. փոստը' : f.password.length < 8 ? 'Գաղտնաբառը՝ առնվազն 8 նիշ' : null)
+    : kind === 'shop' ? (!f.shop_name || !f.legal_name ? 'Լրացրեք անվանումները' : !/^\d{8}$/.test(f.tax_id) ? 'ՀՎՀՀ-ն պետք է լինի 8 թիվ' : !f.district || !f.address ? 'Լրացրեք հասցեն' : common)
+    : kind === 'manager' ? (!f.firm_id && !f.firm_name.trim() ? 'Ընտրեք կամ գրեք ֆիրման' : common)
+    : !f.firm_name.trim() ? 'Լրացրեք ֆիրմայի անունը' : f.tax_id && !/^\d{8}$/.test(f.tax_id) ? 'ՀՎՀՀ-ն պետք է լինի 8 թիվ' : common;
+
+  const metadata = () => {
+    switch (kind) {
+      case 'shop':
+        return { kind, name: f.shop_name, legal_name: f.legal_name, tax_id: f.tax_id, city: 'Երևան', district: f.district, address: f.address, phone: f.phone, email: f.email, contact_person: f.contact_person || f.name };
+      case 'manager':
+        return { kind, name: f.name, phone: f.phone, firm_id: f.firm_id || null, firm_name: f.firm_name, category: f.category };
+      case 'firm':
+        return { kind, name: f.name, phone: f.phone, firm_id: f.firm_id || null, firm_name: f.firm_name, legal_name: f.legal_name, tax_id: f.tax_id, address: f.address, category: f.category };
+      default:
+        return { kind, code: f.code };
+    }
+  };
+
+  // Ֆիրմայի ընտրություն. մենեջերի համար՝ բոլորը, ֆիրմայի համար՝ միայն դեռ չգրանցվածները (մենեջերների ստեղծած)
+  const firmOptions = firms
+    .filter((x) => (kind === 'firm' ? x.status === 'unclaimed' : true))
+    .filter((x) => !firmQuery.trim() || matches(x.name, firmQuery))
+    .slice(0, 12);
 
   return (
     <Screen>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 12, paddingBottom: 40 }}>
-        <Title sub={kind === 'shop' ? 'Մեկ անգամ, և մատակարարները կտեսնեն ձեր տվյալները' : 'Ղեկավարից ստացած 6-նիշ կոդով'}>Գրանցում</Title>
-        <Chips options={[{ value: 'shop', label: 'Խանութ / ռեստորան' }, { value: 'employee', label: 'Աշխատող եմ (ունեմ կոդ)' }]} value={kind} onChange={setKind} />
+        <Title sub="Ընտրեք, թե ով եք">Գրանցում</Title>
+        <Chips options={kinds} value={kind} onChange={(k) => { setKind(k); setMsg(null); setF((x) => ({ ...x, firm_id: '' })); }} />
+
         {kind === 'employee' ? (
           <Card style={{ gap: 12 }}>
-            <Field label="Հրավերի կոդ" value={code} onChangeText={(v) => setCode(v.replace(/\D/g, '').slice(0, 6))} keyboardType="number-pad" />
-            <Field label="Էլ. փոստ" value={f.email} onChangeText={set('email')} keyboardType="email-address" />
-            <Field label="Գաղտնաբառ" value={f.password} onChangeText={set('password')} secure />
-            {msg ? <Text style={{ color: msg.ok ? colors.primary : colors.warnText, textAlign: 'center' }}>{msg.text}</Text> : null}
-            <Button
-              label={busy ? 'Գրանցում…' : 'Գրանցվել'}
-              disabled={busy || code.length !== 6 || !/^\S+@\S+\.\S+$/.test(f.email) || f.password.length < 8}
-              onPress={async () => {
-                setBusy(true);
-                const { data: res, error } = await supabase.auth.signUp({ email: f.email.trim(), password: f.password, options: { data: { kind: 'employee', code } } });
-                setBusy(false);
-                if (error) setMsg({ ok: false, text: error.message });
-                else if (!res.session) setMsg({ ok: true, text: 'Հաստատեք էլ. փոստը (նամակ ենք ուղարկել), հետո մուտք գործեք' });
-                else router.replace('/');
-              }}
-            />
+            <Text style={styles.muted}>Կոդը տալիս է ձեր ֆիրմայի ղեկավարը. այն որոշում է ֆիրման և ձեր դերը</Text>
+            <Field label="Հրավերի կոդ" value={f.code} onChangeText={(v) => set('code')(v.replace(/\D/g, '').slice(0, 6))} keyboardType="number-pad" />
           </Card>
         ) : null}
-        {kind === 'shop' ? (<>
+
+        {kind === 'shop' ? (
+          <>
+            <Card style={{ gap: 12 }}>
+              <Field label="Ցուցանակի անուն (օր.՝ Սրճարան «Կետ»)" value={f.shop_name} onChangeText={set('shop_name')} />
+              <Field label="Իրավաբանական անվանում (օր.՝ «Կետ» ՍՊԸ)" value={f.legal_name} onChangeText={set('legal_name')} />
+              <Field label="ՀՎՀՀ" value={f.tax_id} onChangeText={(v) => set('tax_id')(v.replace(/\D/g, '').slice(0, 8))} keyboardType="number-pad" />
+            </Card>
+            <Card style={{ gap: 12 }}>
+              <Text style={styles.muted}>Երևանի թաղամաս</Text>
+              <Chips options={districts.map((d) => ({ value: d, label: d }))} value={f.district} onChange={set('district')} />
+              <Field label="Հասցե" value={f.address} onChangeText={set('address')} />
+            </Card>
+          </>
+        ) : null}
+
+        {kind === 'manager' || kind === 'firm' ? (
+          <Card style={{ gap: 12 }}>
+            {kind === 'manager' ? (
+              <Text style={styles.muted}>Ո՞ր ֆիրմայի մենեջերն եք. ընտրեք ցուցակից կամ գրեք անունը, եթե չկա</Text>
+            ) : firmOptions.length ? (
+              <Text style={styles.muted}>Եթե ձեր մենեջերներն արդեն գրանցված են, ընտրեք ձեր ֆիրման. նրանք, իրենց խանութներն ու պատվերները կմնան ձեզ մոտ</Text>
+            ) : null}
+            {kind === 'manager' || firmOptions.length ? (
+              <>
+                <Field label="Փնտրել ֆիրմա" value={firmQuery} onChangeText={setFirmQuery} />
+                <Chips
+                  options={firmOptions.map((x) => ({ value: x.id, label: x.name }))}
+                  value={f.firm_id}
+                  onChange={(id) => setF((x) => ({ ...x, firm_id: x.firm_id === id ? '' : id, firm_name: kind === 'firm' ? firms.find((y) => y.id === id)?.name ?? x.firm_name : '' }))}
+                />
+              </>
+            ) : null}
+            {kind === 'firm' || !f.firm_id ? (
+              <Field label={kind === 'firm' ? 'Ֆիրմայի անուն' : 'Կամ գրեք ֆիրմայի անունը'} value={f.firm_name} onChangeText={set('firm_name')} />
+            ) : null}
+            {kind === 'firm' || !f.firm_id ? <Field label="Կատեգորիա (օր.՝ Կաթնամթերք)" value={f.category} onChangeText={set('category')} /> : null}
+            {kind === 'firm' ? (
+              <>
+                <Field label="Իրավաբանական անվանում" value={f.legal_name} onChangeText={set('legal_name')} />
+                <Field label="ՀՎՀՀ" value={f.tax_id} onChangeText={(v) => set('tax_id')(v.replace(/\D/g, '').slice(0, 8))} keyboardType="number-pad" />
+                <Field label="Պահեստի հասցե" value={f.address} onChangeText={set('address')} />
+              </>
+            ) : null}
+          </Card>
+        ) : null}
+
         <Card style={{ gap: 12 }}>
-          <Field label="Ցուցանակի անուն (օր.՝ Սրճարան «Կետ»)" value={f.name} onChangeText={set('name')} />
-          <Field label="Իրավաբանական անվանում (օր.՝ «Կետ» ՍՊԸ)" value={f.legal_name} onChangeText={set('legal_name')} />
-          <Field label="ՀՎՀՀ" value={f.tax_id} onChangeText={(v) => set('tax_id')(v.replace(/\D/g, '').slice(0, 8))} keyboardType="number-pad" />
-        </Card>
-        <Card style={{ gap: 12 }}>
-          <Text style={styles.muted}>Երևանի թաղամաս</Text>
-          <Chips options={districts.map((d) => ({ value: d, label: d }))} value={f.district} onChange={set('district')} />
-          <Field label="Հասցե" value={f.address} onChangeText={set('address')} />
-        </Card>
-        <Card style={{ gap: 12 }}>
-          <Field label="Հեռախոս" value={f.phone} onChangeText={set('phone')} keyboardType="phone-pad" placeholder="+374 ..." />
-          <Field label="Կոնտակտային անձ" value={f.contact_person} onChangeText={set('contact_person')} />
+          {kind !== 'employee' ? (
+            <>
+              <Field label={kind === 'shop' ? 'Կոնտակտային անձ' : 'Ձեր անունը'} value={f.name} onChangeText={set('name')} />
+              <Field label="Հեռախոս" value={f.phone} onChangeText={set('phone')} keyboardType="phone-pad" placeholder="+374 ..." />
+            </>
+          ) : null}
           <Field label="Էլ. փոստ (մուտքի համար)" value={f.email} onChangeText={set('email')} keyboardType="email-address" />
           <Field label="Գաղտնաբառ" value={f.password} onChangeText={set('password')} secure />
         </Card>
 
         {msg ? <Text style={{ color: msg.ok ? colors.primary : colors.warnText, textAlign: 'center' }}>{msg.text}</Text> : null}
-        {problem && Object.values(f).some(Boolean) ? <Text style={[styles.muted, { textAlign: 'center' }]}>{problem}</Text> : null}
+        {problem && (f.email || f.name) ? <Text style={[styles.muted, { textAlign: 'center' }]}>{problem}</Text> : null}
         <Button
           label={busy ? 'Գրանցում…' : 'Գրանցվել'}
           disabled={busy || !!problem}
           onPress={async () => {
             setBusy(true);
-            const { password, ...data } = f;
-            const { data: res, error } = await supabase.auth.signUp({
-              email: f.email.trim(),
-              password,
-              options: { data: { kind: 'shop', city: 'Երևան', ...data } },
-            });
+            const { data: res, error } = await supabase.auth.signUp({ email: f.email.trim(), password: f.password, options: { data: metadata() } });
             setBusy(false);
             if (error) setMsg({ ok: false, text: error.message });
             else if (!res.session) setMsg({ ok: true, text: 'Գրեթե պատրաստ է. հաստատեք էլ. փոստը (նամակ ենք ուղարկել), հետո մուտք գործեք' });
             else router.replace('/');
           }}
         />
-        </>) : null}
         <Button kind="outline" label="Արդեն ունեմ հաշիվ" onPress={() => router.replace('/')} />
       </ScrollView>
     </Screen>

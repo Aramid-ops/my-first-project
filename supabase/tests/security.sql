@@ -69,5 +69,20 @@ select pg_temp.as_user('00000000-0000-0000-0000-000000000001');
 insert into payments(shop_id, firm_id, amount, confirmed_at) values ('30000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001', 1000, now());
 do $$ begin assert (select confirmed_at from payments) is null, 'խանութը չպետք է կարողանար հաստատել'; end $$;
 
+-- 9. Ինքնուրույն մենեջեր → «unclaimed» ֆիրմա, ապրանք (արտիկուլով); ֆիրման «վերցնում է» → մենեջերը մնում է
+reset role;
+insert into auth.users values ('00000000-0000-0000-0000-000000000020','m1@x.am','{"kind":"manager","name":"Կարո","firm_name":"Նոր Կաթ"}');
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000020');
+insert into products (firm_id, name, unit, price) select firm_id, 'Մածուն', 'հատ', 400 from employees where name = 'Կարո';
+do $$ begin assert (select sku from products where name = 'Մածուն') ~ '^[A-Z]{2}0001$', 'նոր ֆիրմայի ապրանքը պետք է ստանար արտիկուլ'; end $$;
+reset role;
+insert into auth.users values ('00000000-0000-0000-0000-000000000022','owner@x.am',
+  json_build_object('kind','firm','firm_name','Նոր Կաթ ՍՊԸ','tax_id','11112222','firm_id',(select firm_id from employees where name = 'Կարո'))::jsonb);
+do $$ begin
+  assert (select status from firms f join employees e on e.firm_id = f.id where e.name = 'Կարո') = 'active', 'ֆիրման պետք է ակտիվանար';
+  assert (select count(*) from employees e join firms f on f.id = e.firm_id where f.tax_id = '11112222') = 2, 'մենեջերը պետք է մնար ֆիրմայում';
+end $$;
+
 reset role;
 \echo ✅ Բազայի բոլոր ստուգումներն անցան
