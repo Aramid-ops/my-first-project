@@ -5,7 +5,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { loadContacts, openChat, useConversations, type Contact } from '@/lib/chat';
 import { formatTime } from '@/lib/rules';
-import { matches } from '@/lib/search';
+import { startsWithWord } from '@/lib/search';
 import { colors } from '@/lib/theme';
 import { Chips, Field, Screen, styles, Title } from '@/lib/ui';
 
@@ -58,7 +58,7 @@ export default function Chats() {
           <>
             <Field label="Փնտրել" value={q} onChangeText={setQ} />
             {contacts
-              .filter((c) => matches(`${c.name} ${c.subtitle}`, q))
+              .filter((c) => startsWithWord(`${c.name} ${c.subtitle}`, q))
               .map((c) => (
                 <Pressable
                   key={c.userId}

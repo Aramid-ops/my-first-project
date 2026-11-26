@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { formatAmd } from '@/lib/rules';
-import { matches } from '@/lib/search';
+import { startsWithWord } from '@/lib/search';
 import { useStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { colors, radius } from '@/lib/theme';
@@ -52,7 +52,7 @@ export default function Search() {
 
   const linkFor = (firmId: string) => links.find((l) => l.shopId === session.shopId && l.firmId === firmId);
   // Մատակարարներ՝ միանգամից, հեռախոսում (կատալոգը բոլորին հասանելի է)
-  const firmHits = q.trim() ? firms.filter((f) => matches(`${f.name} ${f.category}`, q)) : [];
+  const firmHits = q.trim() ? firms.filter((f) => startsWithWord(`${f.name} ${f.category}`, q)) : [];
 
   return (
     <Screen>
