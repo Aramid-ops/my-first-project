@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { decQty, deliveryLabel, formatAmd, incQty, nextDeliveryDate } from '@/lib/rules';
@@ -9,7 +9,7 @@ import { Button, Logo, Pill, Screen, styles } from '@/lib/ui';
 export default function SupplierCatalog() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session, firms, links, employees, products, cart, setQty } = useStore();
-  if (session?.kind !== 'shop') return null;
+  if (session?.kind !== 'shop') return <Redirect href="/" />;
   const firm = firms.find((f) => f.id === id);
   const link = links.find((l) => l.shopId === session.shopId && l.firmId === id);
   if (!firm || !link) return null;

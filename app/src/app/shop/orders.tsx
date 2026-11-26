@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { deliveryLabel } from '@/lib/rules';
@@ -8,7 +8,7 @@ import { Logo, Pill, Screen, styles, Title } from '@/lib/ui';
 
 export default function ShopOrders() {
   const { session, orders, firms, employees } = useStore();
-  if (session?.kind !== 'shop') return null;
+  if (session?.kind !== 'shop') return <Redirect href="/" />;
   const mine = orders.filter((o) => o.shopId === session.shopId);
 
   return (

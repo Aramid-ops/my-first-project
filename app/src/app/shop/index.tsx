@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { deliveryLabel, nextDeliveryDate } from '@/lib/rules';
@@ -8,7 +8,7 @@ import { Button, Logo, Screen, styles, Title } from '@/lib/ui';
 
 export default function ShopHome() {
   const { session, shops, links, firms, employees, cart, orders, signOut } = useStore();
-  if (session?.kind !== 'shop') return null;
+  if (session?.kind !== 'shop') return <Redirect href="/" />;
   const shop = shops.find((s) => s.id === session.shopId)!;
   const myLinks = links.filter((l) => l.shopId === shop.id && l.status === 'active');
   const cartCount = Object.keys(cart).length;

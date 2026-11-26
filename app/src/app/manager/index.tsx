@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { deliveryLabel, formatQty, formatTime } from '@/lib/rules';
@@ -8,7 +8,7 @@ import { Button, Pill, Screen, styles, Title } from '@/lib/ui';
 
 export default function ManagerInbox() {
   const { session, employees, firms, orders, shops, products, accept, forward, signOut } = useStore();
-  if (session?.kind !== 'employee') return null;
+  if (session?.kind !== 'employee') return <Redirect href="/" />;
   const me = employees.find((e) => e.id === session.employeeId)!;
   const firm = firms.find((f) => f.id === me.firmId)!;
   const target = employees.find((e) => e.id === me.defaultForwardToId);

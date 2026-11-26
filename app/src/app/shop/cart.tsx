@@ -1,4 +1,5 @@
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { deliveryLabel, formatAmd, formatQty, nextDeliveryDate } from '@/lib/rules';
@@ -7,7 +8,9 @@ import { Button, Logo, Pill, Screen, styles, Title } from '@/lib/ui';
 
 export default function Cart() {
   const { session, cart, products, firms, links, employees, sendCart } = useStore();
-  if (session?.kind !== 'shop') return null;
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (session?.kind !== 'shop') return <Redirect href="/" />;
 
   const groups = firms
     .map((f) => {
@@ -60,14 +63,20 @@ export default function Cart() {
           </ScrollView>
 
           <View style={{ gap: 8, paddingBottom: 20 }}>
+            {error ? <Text style={{ color: '#8A3A0E', textAlign: 'center' }}>{error}</Text> : null}
             <Text style={[styles.muted, { textAlign: 'center' }]}>
               Մոտավոր գումար՝ {formatAmd(total)} · ամեն մատակարար կստանա միայն իր մասը
             </Text>
             <Button
               label={`Ուղարկել ${groups.length} մատակարարին`}
-              onPress={() => {
-                sendCart();
-                router.replace('/shop/orders');
+              disabled={busy}
+              onPress={async () => {
+                setBusy(true);
+                setError(null);
+                const err = await sendCart();
+                setBusy(false);
+                if (err) setError(err);
+                else router.replace('/shop/orders');
               }}
             />
           </View>
