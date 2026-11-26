@@ -49,3 +49,8 @@ update employees set user_id = (select id from auth.users where email = 'karen@d
   where id = '20000000-0000-0000-0000-000000000001' and user_id is null;
 update employees set user_id = (select id from auth.users where email = 'ani@demo.matakarar.com')
   where id = '20000000-0000-0000-0000-000000000002' and user_id is null;
+update employees set user_id = (select id from auth.users where email = 'artur@demo.matakarar.com')
+  where id = '20000000-0000-0000-0000-000000000004' and user_id is null;
+-- Հասցեներ և կոորդինատներ (Yandex երթուղու համար)
+update shops set address = 'Աջափնյակ, փորձնական հասցե', lat = 40.1960, lng = 44.4760
+  where id = '30000000-0000-0000-0000-000000000001' and lat is null;

@@ -1,15 +1,16 @@
 // Հավելվածի վիճակը՝ Supabase-ի հետ։
 // Ամեն օգտատեր բազայից ստանում է միայն իրեն թույլատրվածը (RLS)։
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session as AuthSession } from '@supabase/supabase-js';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { nextDeliveryDate, toISODate } from './rules';
 import { supabase } from './supabase';
-import type { Employee, Firm, Order, OrderStatus, Product, Shop, ShopFirmLink, Unit, Weekday } from './types';
+import type { Employee, EmployeeRole, Firm, Order, OrderStatus, Product, Shop, ShopFirmLink, Unit, Weekday } from './types';
 
 export type Session =
   | { kind: 'shop'; shopId: string }
-  | { kind: 'employee'; employeeId: string }
+  | { kind: 'employee'; employeeId: string; role: EmployeeRole }
   | { kind: 'none' } // մուտք է գործել, բայց ոչ մի դերի կցված չէ
   | null;
 
@@ -63,7 +64,7 @@ const mapEmployee = (r: any): Employee => ({
   defaultForwardToId: r.default_forward_to ?? undefined,
   phone: r.phone ?? undefined,
 });
-const mapShop = (r: any): Shop => ({ id: r.id, name: r.name, taxId: r.tax_id, city: r.city, district: r.district ?? '', address: r.address ?? '', phone: r.phone ?? undefined });
+const mapShop = (r: any): Shop => ({ id: r.id, name: r.name, taxId: r.tax_id, city: r.city, district: r.district ?? '', address: r.address ?? '', phone: r.phone ?? undefined, lat: r.lat ?? undefined, lng: r.lng ?? undefined });
 const mapLink = (r: any): ShopFirmLink => ({ shopId: r.shop_id, firmId: r.firm_id, managerId: r.manager_id, status: r.status, deliveryDays: (r.delivery_days ?? []) as Weekday[] });
 const mapProduct = (r: any): Product => ({
   id: r.id,
@@ -84,6 +85,7 @@ const mapOrder = (r: any): Order => ({
   firmId: r.firm_id,
   managerId: r.manager_id,
   assigneeId: r.assignee_id ?? r.manager_id,
+  driverId: r.driver_id ?? undefined,
   status: r.status as OrderStatus,
   deliveryDate: r.delivery_date,
   createdAt: r.created_at,
@@ -120,6 +122,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setSession(null);
       return;
     }
+    const cacheKey = `snapshot:${auth.user.id}`;
     const uid = auth.user.id;
     const [f, e, s, l, p, o, me, member] = await Promise.all([
       supabase.from('firms').select('*'),
@@ -128,18 +131,46 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       supabase.from('shop_firm_links').select('*'),
       supabase.from('products').select('*').order('name'),
       supabase.from('orders').select('*, order_items(*), order_events(*)').order('created_at', { ascending: false }),
-      supabase.from('employees').select('id').eq('user_id', uid).maybeSingle(),
+      supabase.from('employees').select('id, role').eq('user_id', uid).maybeSingle(),
       supabase.from('shop_members').select('shop_id').eq('user_id', uid).maybeSingle(),
     ]);
-    setFirms((f.data ?? []).map(mapFirm));
+    // Առանց ինտերնետի. պահում ենք վերջին հաջողված պատկերը և աշխատում դրանով
+    if ([f, e, s, l, p, o, me, member].some((r) => r.error)) {
+      const raw = await AsyncStorage.getItem(cacheKey).catch(() => null);
+      if (raw) {
+        const c = JSON.parse(raw);
+        setFirms(c.firms);
+        setEmployees(c.employees);
+        setShops(c.shops);
+        setLinks(c.links);
+        setProducts(c.products);
+        setOrders(c.orders);
+        setSession(c.session);
+      }
+      setReady(true);
+      return;
+    }
+    const snap = {
+      firms: (f.data ?? []).map(mapFirm),
+      employees: (e.data ?? []).map(mapEmployee),
+      shops: (s.data ?? []).map(mapShop),
+      links: (l.data ?? []).map(mapLink),
+      products: (p.data ?? []).map(mapProduct),
+      orders: (o.data ?? []).map(mapOrder),
+      session: (member.data
+        ? { kind: 'shop', shopId: member.data.shop_id }
+        : me.data
+          ? { kind: 'employee', employeeId: me.data.id, role: me.data.role }
+          : { kind: 'none' }) as Session,
+    };
+    AsyncStorage.setItem(cacheKey, JSON.stringify(snap)).catch(() => {});
+    setFirms(snap.firms);
     setEmployees((e.data ?? []).map(mapEmployee));
     setShops((s.data ?? []).map(mapShop));
     setLinks((l.data ?? []).map(mapLink));
     setProducts((p.data ?? []).map(mapProduct));
     setOrders((o.data ?? []).map(mapOrder));
-    if (member.data) setSession({ kind: 'shop', shopId: member.data.shop_id });
-    else if (me.data) setSession({ kind: 'employee', employeeId: me.data.id });
-    else setSession({ kind: 'none' });
+    setSession(snap.session);
     setReady(true);
   }, [auth]);
 
@@ -230,7 +261,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         await reload();
       },
       forward: async (orderId, to) => {
-        await supabase.from('orders').update({ status: 'preparing', assignee_id: to }).eq('id', orderId);
+        const target = employees.find((x) => x.id === to);
+        await supabase
+          .from('orders')
+          .update(target?.role === 'driver' ? { status: 'preparing', assignee_id: to, driver_id: to } : { status: 'preparing', assignee_id: to })
+          .eq('id', orderId);
         await addEvent(orderId, `Փոխանցեց → ${employees.find((x) => x.id === to)?.name ?? ''}`);
         await reload();
       },

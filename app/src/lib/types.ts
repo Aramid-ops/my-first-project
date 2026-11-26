@@ -33,6 +33,8 @@ export interface Shop {
   district: string;
   address: string;
   phone?: string;
+  lat?: number;
+  lng?: number;
 }
 
 /** Խանութի կապը ֆիրմայի հետ. ճիշտ մեկ մենեջեր (§2, կանոն 2) */
@@ -92,6 +94,7 @@ export interface Order {
   managerId: string;
   /** Ներսում ում մոտ է հիմա */
   assigneeId: string;
+  driverId?: string;
   status: OrderStatus;
   deliveryDate: string; // YYYY-MM-DD
   items: OrderItem[];
