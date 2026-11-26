@@ -36,6 +36,7 @@ interface Store {
   payments: Payment[];
   savedLists: SavedList[];
   driverProfile: DriverProfile | null;
+  isPlatformAdmin: boolean;
   acceptInvite: (code: string) => Promise<{ firm?: string; error?: string }>;
   /** Խանութի իրական գինը (զեղչով / անհատական) */
   priceOf: (p: Product) => number;
@@ -182,6 +183,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [savedLists, setSavedLists] = useState<SavedList[]>([]);
   const [driverProfile, setDriverProfile] = useState<DriverProfile | null>(null);
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [prices, setPrices] = useState<Record<string, number>>({});
   const [cart, setCart] = useState<Record<string, number>>({});
 
@@ -214,6 +216,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setDebts((dbt.data ?? []).map((r: any) => ({ shopId: r.shop_id, firmId: r.firm_id, delivered: Number(r.delivered), paid: Number(r.paid), pending: Number(r.pending), debt: Number(r.debt) })));
     setPayments((pay.data ?? []).map((r: any) => ({ id: r.id, shopId: r.shop_id, firmId: r.firm_id, amount: Number(r.amount), confirmed: !!r.confirmed_at, markedAt: r.marked_paid_by_shop_at ?? undefined, note: r.note ?? undefined })));
     /* eslint-enable @typescript-eslint/no-explicit-any */
+    const pa = await supabase.from('platform_admins').select('user_id').maybeSingle();
+    setIsPlatformAdmin(!!pa.data);
     const dp = await supabase.from('driver_profiles').select('*').eq('user_id', uid).maybeSingle();
     setDriverProfile(
       dp.data
@@ -362,6 +366,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       payments,
       savedLists,
       driverProfile,
+      isPlatformAdmin,
       acceptInvite: async (code) => {
         const { data, error } = await supabase.rpc('accept_invite', { p_code: code });
         await reload();
@@ -616,7 +621,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         await reload();
       },
     };
-  }, [ready, session, auth, firms, employees, shops, links, products, orders, teams, lines, issues, debts, payments, savedLists, driverProfile, prices, cart, reload]);
+  }, [ready, session, auth, firms, employees, shops, links, products, orders, teams, lines, issues, debts, payments, savedLists, driverProfile, isPlatformAdmin, prices, cart, reload]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
