@@ -8,13 +8,12 @@ import { pickPrivateDoc } from '@/lib/media';
 import { useStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { colors, radius } from '@/lib/theme';
-import { Button, Card, Screen, styles, Title } from '@/lib/ui';
+import { Button, Card, Chips, Screen, styles, Title } from '@/lib/ui';
 
 type Slot = 'front' | 'back' | 'selfie';
 const slots: { key: Slot; title: string; hint: string; camera: boolean }[] = [
   { key: 'front', title: '1. Վարորդական իրավունք՝ առջևի կողմը', hint: 'Ամբողջ քարտը, լավ լուսավորությամբ, առանց փայլի', camera: false },
   { key: 'back', title: '2. Վարորդական իրավունք՝ հետևի կողմը', hint: 'Կարգերը (B, C...) պետք է ընթեռնելի լինեն', camera: false },
-  { key: 'selfie', title: '3. Անձնագիրը դեմքի մոտ (սելֆի)', hint: 'Պահեք անձնագրի լուսանկարով էջը դեմքի կողքին. և՛ դեմքը, և՛ անձնագիրը պետք է պարզ երևան', camera: true },
 ];
 
 export default function Verify() {
@@ -23,6 +22,12 @@ export default function Verify() {
   const [previews, setPreviews] = useState<Partial<Record<Slot, string>>>({});
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [doc, setDoc] = useState<'passport' | 'id_card'>('id_card');
+  const docName = doc === 'passport' ? 'Անձնագիրը' : 'Նույնականացման քարտը';
+  const allSlots = [
+    ...slots,
+    { key: 'selfie' as Slot, title: `3. ${docName} դեմքի մոտ (սելֆի)`, hint: `Պահեք ${doc === 'passport' ? 'անձնագրի լուսանկարով էջը' : 'նույնականացման քարտը'} դեմքի կողքին. և՛ դեմքը, և՛ փաստաթուղթը պետք է պարզ երևան`, camera: true },
+  ];
   if (!driverProfile) return <Redirect href="/" />;
 
   const pick = async (slot: Slot, source: 'camera' | 'library') => {
@@ -45,7 +50,11 @@ export default function Verify() {
         <Title sub="Որ ֆիրմաները վստահեն ձեզ">Նույնականացում</Title>
       </View>
       <ScrollView contentContainerStyle={{ gap: 12, paddingBottom: 40 }}>
-        {slots.map((s) => (
+        <Card style={{ gap: 8 }}>
+          <Text style={styles.strong}>Ո՞ր փաստաթուղթն ունեք</Text>
+          <Chips options={[{ value: 'id_card', label: 'Նույնականացման քարտ (ID)' }, { value: 'passport', label: 'Անձնագիր' }]} value={doc} onChange={setDoc} />
+        </Card>
+        {allSlots.map((s) => (
           <Card key={s.key} style={{ gap: 8 }}>
             <Text style={styles.strong}>{s.title}</Text>
             <Text style={styles.muted}>{s.hint}</Text>
@@ -63,7 +72,7 @@ export default function Verify() {
           disabled={busy || !paths.front || !paths.back || !paths.selfie}
           onPress={async () => {
             setBusy(true);
-            const { error } = await supabase.rpc('submit_driver_verification', { p_front: paths.front, p_back: paths.back, p_selfie: paths.selfie });
+            const { error } = await supabase.rpc('submit_driver_verification', { p_front: paths.front, p_back: paths.back, p_selfie: paths.selfie, p_doc: doc });
             setBusy(false);
             if (error) setMsg({ ok: false, text: error.message });
             else {

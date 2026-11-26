@@ -9,7 +9,7 @@ import { supabase } from '@/lib/supabase';
 import { colors, radius } from '@/lib/theme';
 import { Button, Chips, CopyRow, Screen, styles, Title } from '@/lib/ui';
 
-type Ver = { user_id: string; name: string; phone: string | null; license_categories: string[]; front: string; back: string; selfie: string; urls?: string[] };
+type Ver = { user_id: string; name: string; phone: string | null; license_categories: string[]; front: string; back: string; selfie: string; document_type: string; urls?: string[] };
 type Claim = { id: string; firm_name: string; data: Record<string, string>; email: string };
 
 export default function Platform() {
@@ -66,7 +66,7 @@ export default function Platform() {
               <View key={v.user_id} style={[styles.card, { gap: 8 }]}>
                 <Text style={[styles.strong, { fontSize: 18 }]}>{v.name}</Text>
                 <CopyRow label="Հեռախոս" value={v.phone} />
-                <Text style={styles.muted}>Կարգեր՝ {v.license_categories.join(', ')}</Text>
+                <Text style={styles.muted}>Կարգեր՝ {v.license_categories.join(', ')} · {v.document_type === 'id_card' ? 'ID քարտ' : 'անձնագիր'}</Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                   {(v.urls ?? []).map((u, i) => (
                     <Image key={i} source={{ uri: u }} style={{ width: 150, height: 110, borderRadius: radius.sm }} contentFit="cover" accessibilityLabel={['Իրավունք առջև', 'Իրավունք հետև', 'Սելֆի անձնագրով'][i]} />
