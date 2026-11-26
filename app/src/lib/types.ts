@@ -43,8 +43,27 @@ export interface ShopFirmLink {
   firmId: string;
   managerId: string;
   status: 'pending' | 'active' | 'paused';
-  /** Գծի օրեր այս խանութի համար; դատարկ = ամեն օր */
+  /** Գծի օրեր այս խանութի համար; դատարկ = ամեն օր (եթե կա գիծ՝ վերցվում է գծից) */
   deliveryDays: Weekday[];
+  lineId?: string;
+}
+
+/** Ֆիրմայի աշխատողների խումբ. մեկ աշխատող կարող է լինել մի քանիսում */
+export interface Team {
+  id: string;
+  firmId: string;
+  name: string;
+  memberIds: string[];
+}
+
+/** Գիծ. անուն + օրեր + մշտական վարորդ */
+export interface Line {
+  id: string;
+  firmId: string;
+  teamId?: string;
+  name: string;
+  deliveryDays: Weekday[];
+  driverId?: string;
 }
 
 export type Unit = 'հատ' | 'կգ' | 'գ' | 'լ' | 'մ' | 'տուփ' | 'բլոկ' | 'արկղ';

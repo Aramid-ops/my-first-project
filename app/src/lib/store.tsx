@@ -6,7 +6,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 
 import { nextDeliveryDate, toISODate } from './rules';
 import { supabase } from './supabase';
-import type { Employee, EmployeeRole, Firm, Order, OrderStatus, Product, Shop, ShopFirmLink, Unit, Weekday } from './types';
+import type { Employee, EmployeeRole, Firm, Line, Order, OrderStatus, Product, Shop, ShopFirmLink, Team, Unit, Weekday } from './types';
 
 export type Session =
   | { kind: 'shop'; shopId: string }
@@ -27,7 +27,16 @@ interface Store {
   links: ShopFirmLink[];
   products: Product[];
   orders: Order[];
+  teams: Team[];
+  lines: Line[];
   reload: () => Promise<void>;
+
+  /** Փոխանցման թեկնածուներ. իմ խմբերի անդամները (ներքին աշխատողներ և վարորդներ), առաջարկվողները՝ առաջինը */
+  forwardCandidates: (order: Order) => { employee: Employee; suggested: boolean }[];
+  setLinkLine: (shopId: string, firmId: string, lineId: string | null) => Promise<string | null>;
+  setLinkManager: (shopId: string, firmId: string, managerId: string) => Promise<string | null>;
+  setLineDriver: (lineId: string, driverId: string | null) => Promise<string | null>;
+  toggleTeamMember: (teamId: string, employeeId: string) => Promise<string | null>;
 
   cart: Record<string, number>;
   setQty: (productId: string, qty: number) => void;
@@ -65,7 +74,8 @@ const mapEmployee = (r: any): Employee => ({
   phone: r.phone ?? undefined,
 });
 const mapShop = (r: any): Shop => ({ id: r.id, name: r.name, taxId: r.tax_id, city: r.city, district: r.district ?? '', address: r.address ?? '', phone: r.phone ?? undefined, lat: r.lat ?? undefined, lng: r.lng ?? undefined });
-const mapLink = (r: any): ShopFirmLink => ({ shopId: r.shop_id, firmId: r.firm_id, managerId: r.manager_id, status: r.status, deliveryDays: (r.delivery_days ?? []) as Weekday[] });
+const mapLink = (r: any): ShopFirmLink => ({ shopId: r.shop_id, firmId: r.firm_id, managerId: r.manager_id, status: r.status, deliveryDays: (r.delivery_days ?? []) as Weekday[], lineId: r.line_id ?? undefined });
+const mapLine = (r: any): Line => ({ id: r.id, firmId: r.firm_id, teamId: r.team_id ?? undefined, name: r.name, deliveryDays: (r.delivery_days ?? []) as Weekday[], driverId: r.driver_id ?? undefined });
 const mapProduct = (r: any): Product => ({
   id: r.id,
   sku: r.sku ?? undefined,
@@ -107,6 +117,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [links, setLinks] = useState<ShopFirmLink[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [lines, setLines] = useState<Line[]>([]);
   const [cart, setCart] = useState<Record<string, number>>({});
 
   useEffect(() => {
@@ -125,6 +137,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
     const cacheKey = `snapshot:${auth.user.id}`;
     const uid = auth.user.id;
+    const [tm, tmm, ln] = await Promise.all([
+      supabase.from('teams').select('*'),
+      supabase.from('team_members').select('*'),
+      supabase.from('lines').select('*'),
+    ]);
     const [f, e, s, l, p, o, me, member] = await Promise.all([
       supabase.from('firms').select('*'),
       supabase.from('employees').select('*'),
@@ -146,16 +163,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setLinks(c.links);
         setProducts(c.products);
         setOrders(c.orders);
+        setTeams(c.teams ?? []);
+        setLines(c.lines ?? []);
         setSession(c.session);
       }
       setReady(true);
       return;
     }
+    const lineList = (ln.data ?? []).map(mapLine);
+    const teamList: Team[] = (tm.data ?? []).map((t: { id: string; firm_id: string; name: string }) => ({
+      id: t.id,
+      firmId: t.firm_id,
+      name: t.name,
+      memberIds: (tmm.data ?? []).filter((m: { team_id: string }) => m.team_id === t.id).map((m: { employee_id: string }) => m.employee_id),
+    }));
     const snap = {
+      teams: teamList,
+      lines: lineList,
       firms: (f.data ?? []).map(mapFirm),
       employees: (e.data ?? []).map(mapEmployee),
       shops: (s.data ?? []).map(mapShop),
-      links: (l.data ?? []).map(mapLink),
+      // Եթե խանութը գծի վրա է, առաքման օրերը վերցվում են գծից
+      links: (l.data ?? []).map(mapLink).map((x: ShopFirmLink) => {
+        const line = lineList.find((y) => y.id === x.lineId);
+        return line ? { ...x, deliveryDays: line.deliveryDays } : x;
+      }),
       products: (p.data ?? []).map(mapProduct),
       orders: (o.data ?? []).map(mapOrder),
       session: (member.data
@@ -165,6 +197,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           : { kind: 'none' }) as Session,
     };
     AsyncStorage.setItem(cacheKey, JSON.stringify(snap)).catch(() => {});
+    setTeams(snap.teams);
+    setLines(snap.lines);
     setFirms(snap.firms);
     setEmployees((e.data ?? []).map(mapEmployee));
     setShops((s.data ?? []).map(mapShop));
@@ -214,7 +248,46 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       links,
       products,
       orders,
+      teams,
+      lines,
       reload,
+      forwardCandidates: (order) => {
+        if (session?.kind !== 'employee') return [];
+        const me = employees.find((x) => x.id === session.employeeId);
+        if (!me) return [];
+        const myTeams = teams.filter((t) => t.memberIds.includes(me.id));
+        const ids = new Set(myTeams.flatMap((t) => t.memberIds));
+        const link = links.find((x) => x.shopId === order.shopId && x.firmId === order.firmId);
+        const line = lines.find((x) => x.id === link?.lineId);
+        const suggestedIds = new Set([line?.driverId, me.defaultForwardToId].filter(Boolean) as string[]);
+        return employees
+          .filter((x) => x.id !== me.id && x.firmId === me.firmId && (x.role === 'staff' || x.role === 'driver') && (ids.has(x.id) || suggestedIds.has(x.id)))
+          .map((x) => ({ employee: x, suggested: suggestedIds.has(x.id) }))
+          .sort((a, b) => Number(b.suggested) - Number(a.suggested));
+      },
+      setLinkLine: async (shopId, firmId, lineId) => {
+        const { error } = await supabase.from('shop_firm_links').update({ line_id: lineId }).eq('shop_id', shopId).eq('firm_id', firmId);
+        await reload();
+        return error?.message ?? null;
+      },
+      setLinkManager: async (shopId, firmId, managerId) => {
+        const { error } = await supabase.from('shop_firm_links').update({ manager_id: managerId }).eq('shop_id', shopId).eq('firm_id', firmId);
+        await reload();
+        return error?.message ?? null;
+      },
+      setLineDriver: async (lineId, driverId) => {
+        const { error } = await supabase.from('lines').update({ driver_id: driverId }).eq('id', lineId);
+        await reload();
+        return error?.message ?? null;
+      },
+      toggleTeamMember: async (teamId, employeeId) => {
+        const t = teams.find((x) => x.id === teamId);
+        const { error } = t?.memberIds.includes(employeeId)
+          ? await supabase.from('team_members').delete().eq('team_id', teamId).eq('employee_id', employeeId)
+          : await supabase.from('team_members').insert({ team_id: teamId, employee_id: employeeId });
+        await reload();
+        return error?.message ?? null;
+      },
       cart,
       setQty: (productId, qty) =>
         setCart((c) => {
@@ -276,7 +349,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         await reload();
       },
     };
-  }, [ready, session, auth, firms, employees, shops, links, products, orders, cart, reload]);
+  }, [ready, session, auth, firms, employees, shops, links, products, orders, teams, lines, cart, reload]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

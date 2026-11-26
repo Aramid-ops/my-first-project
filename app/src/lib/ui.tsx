@@ -104,3 +104,43 @@ export const styles = StyleSheet.create({
   body: { fontSize: 15, color: colors.text },
   strong: { fontSize: 16, fontWeight: '600', color: colors.text },
 });
+
+/** Ընտրության կոճակներ (մեկ ընտրված) */
+export function Chips<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: { value: T; label: string; hint?: string }[];
+  value?: T | null;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+      {options.map((o) => {
+        const on = o.value === value;
+        return (
+          <Pressable
+            key={o.value}
+            accessibilityRole="button"
+            accessibilityState={{ selected: on }}
+            onPress={() => onChange(o.value)}
+            style={{
+              minHeight: 40,
+              paddingHorizontal: 12,
+              borderRadius: 999,
+              justifyContent: 'center',
+              backgroundColor: on ? colors.dark : colors.card,
+              borderWidth: 1,
+              borderColor: on ? colors.dark : colors.borderStrong,
+            }}>
+            <Text style={{ color: on ? '#FFFFFF' : colors.text, fontSize: 14, fontWeight: on ? '700' : '400' }}>
+              {o.label}
+              {o.hint ? <Text style={{ color: on ? colors.onDarkMuted : colors.textMuted, fontSize: 12 }}> · {o.hint}</Text> : null}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}

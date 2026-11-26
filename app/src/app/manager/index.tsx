@@ -1,21 +1,23 @@
 import { Redirect, router } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { deliveryLabel, formatQty, formatTime } from '@/lib/rules';
 import { useStore } from '@/lib/store';
 import { colors } from '@/lib/theme';
-import { Button, Pill, Screen, styles, Title } from '@/lib/ui';
+import { ForwardPicker } from '@/components/forward-picker';
+import { Button, Chips, Pill, Screen, styles, Title } from '@/lib/ui';
 
 export default function ManagerInbox() {
-  const { session, employees, firms, orders, shops, products, accept, forward, signOut } = useStore();
+  const { session, employees, firms, orders, shops, products, links, lines, accept, setLinkLine, signOut } = useStore();
+  const [tab, setTab] = useState<'orders' | 'shops'>('orders');
   if (session?.kind !== 'employee') return <Redirect href="/" />;
   const me = employees.find((e) => e.id === session.employeeId)!;
   const firm = firms.find((f) => f.id === me.firmId)!;
-  const target = employees.find((e) => e.id === me.defaultForwardToId);
   const isManager = me.role === 'manager';
   const roleLabel = isManager ? 'մենեջեր' : me.department ?? (me.role === 'driver' ? 'վարորդ' : 'աշխատող');
-  // Ում կարող է փոխանցել ներքին աշխատողը (նույն ֆիրմայի մյուս աշխատողներն ու վարորդները)
-  const forwardTargets = employees.filter((e) => e.firmId === me.firmId && e.id !== me.id && (e.role === 'staff' || e.role === 'driver'));
+  const myLinks = links.filter((l) => l.managerId === me.id);
+  const firmLines = lines.filter((l) => l.firmId === me.firmId);
 
   // Մենեջեր՝ իր խանութների նոր պատվերները; ներքին աշխատող՝ իրեն փոխանցվածները
   const waiting = isManager
@@ -35,6 +37,39 @@ export default function ManagerInbox() {
       </View>
       <Title sub={`${firm.name} · ${roleLabel}`}>Բարև, {me.name}</Title>
 
+      {isManager ? (
+        <View style={{ marginBottom: 12 }}>
+          <Chips
+            options={[
+              { value: 'orders', label: 'Պատվերներ', hint: `${waiting.length}` },
+              { value: 'shops', label: 'Իմ խանութները', hint: `${myLinks.length}` },
+            ]}
+            value={tab}
+            onChange={setTab}
+          />
+        </View>
+      ) : null}
+
+      {isManager && tab === 'shops' ? (
+        <ScrollView contentContainerStyle={{ gap: 10, paddingBottom: 24 }}>
+          {myLinks.length === 0 ? <Text style={styles.muted}>Դեռ կցված խանութ չկա</Text> : null}
+          {myLinks.map((l) => {
+            const shop = shops.find((s) => s.id === l.shopId);
+            return (
+              <View key={l.shopId} style={[styles.card, { gap: 8 }]}>
+                <Text style={styles.strong}>{shop?.name}</Text>
+                <Text style={styles.muted}>{[shop?.district, shop?.address].filter(Boolean).join(' · ')}</Text>
+                <Text style={styles.muted}>Գիծ՝</Text>
+                <Chips
+                  options={firmLines.map((x) => ({ value: x.id, label: x.name, hint: x.deliveryDays.length ? x.deliveryDays.map((d) => ['', 'երկ', 'երք', 'չրք', 'հնգ', 'ուրբ', 'շբթ', 'կիր'][d]).join(', ') : 'ամեն օր' }))}
+                  value={l.lineId ?? null}
+                  onChange={(v) => setLinkLine(l.shopId, l.firmId, v)}
+                />
+              </View>
+            );
+          })}
+        </ScrollView>
+      ) : (
       <ScrollView contentContainerStyle={{ gap: 10, paddingBottom: 24 }}>
         <Text style={[styles.strong, { fontSize: 15 }]}>Նոր պատվերներ · {waiting.length}</Text>
         {waiting.length === 0 ? <Text style={styles.muted}>Նոր պատվեր չկա</Text> : null}
@@ -58,26 +93,7 @@ export default function ManagerInbox() {
                   </View>
                 );
               })}
-              {!isManager ? (
-                <View style={{ gap: 8 }}>
-                  <Text style={styles.muted}>Փոխանցել՝</Text>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                    {forwardTargets.map((t) => (
-                      <Button
-                        key={t.id}
-                        kind="dark"
-                        label={`${t.name} (${t.department ?? (t.role === 'driver' ? 'վարորդ' : 'աշխատող')})`}
-                        onPress={() => forward(o.id, t.id)}
-                        style={{ flexGrow: 1 }}
-                      />
-                    ))}
-                  </View>
-                </View>
-              ) : o.status === 'sent' ? (
-                <Button label="Ընդունել" onPress={() => accept(o.id)} />
-              ) : target ? (
-                <Button kind="dark" label={`Փոխանցել → ${target.name}${target.department ? ` (${target.department})` : ''}`} onPress={() => forward(o.id, target.id)} />
-              ) : null}
+              {isManager && o.status === 'sent' ? <Button label="Ընդունել" onPress={() => accept(o.id)} /> : <ForwardPicker order={o} />}
             </View>
           );
         })}
@@ -94,6 +110,7 @@ export default function ManagerInbox() {
           );
         })}
       </ScrollView>
+      )}
     </Screen>
   );
 }
