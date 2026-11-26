@@ -8,6 +8,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { ForwardPicker } from '@/components/forward-picker';
 import { deliveryLabel, formatAmd, formatQty, formatTime } from '@/lib/rules';
+import { ChatButton } from '@/components/chat-button';
 import { InviteButton } from '@/components/invite-button';
 import { useStore } from '@/lib/store';
 import { colors, radius } from '@/lib/theme';
@@ -58,6 +59,7 @@ export default function Inbox() {
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <Text style={{ fontSize: 15, fontWeight: '700', color: colors.dark }}>Մատակարար</Text>
         <View style={{ flexDirection: 'row', gap: 16 }}>
+          <ChatButton />
           <InviteButton />
           <Pressable accessibilityRole="button" onPress={() => { s.signOut(); router.replace('/'); }} hitSlop={12}>
           <Text style={styles.muted}>Դուրս գալ</Text>
@@ -67,6 +69,11 @@ export default function Inbox() {
       <Title sub={`${firm.name} · ${roleLabel}`}>Բարև, {me.name}</Title>
       <View style={{ marginBottom: 12, gap: 8 }}>
         <Chips options={tabs} value={tab} onChange={setTab} />
+        {isManager ? (
+          <Pressable accessibilityRole="button" onPress={() => router.push('/firm/drivers')} hitSlop={8}>
+            <Text style={{ color: colors.primary, fontWeight: '600' }}>🔍 Գտնել վարորդ →</Text>
+          </Pressable>
+        ) : null}
         {me.role === 'staff' || (isManager && firm.status === 'unclaimed') ? (
           <Pressable accessibilityRole="button" onPress={() => router.push('/firm/products')} hitSlop={8}>
             <Text style={{ color: colors.primary, fontWeight: '600' }}>Ապրանքներ և գներ →</Text>

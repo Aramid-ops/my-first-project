@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { formatAmd, toISODate } from '@/lib/rules';
+import { ChatButton } from '@/components/chat-button';
 import { InviteButton } from '@/components/invite-button';
 import { useStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
@@ -42,6 +43,7 @@ export default function Admin() {
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <Text style={{ fontSize: 15, fontWeight: '700', color: colors.dark }}>Մատակարար</Text>
         <View style={{ flexDirection: 'row', gap: 16 }}>
+          <ChatButton />
           <InviteButton />
           <Pressable accessibilityRole="button" onPress={() => { signOut(); router.replace('/'); }} hitSlop={12}>
           <Text style={styles.muted}>Դուրս գալ</Text>
@@ -126,7 +128,8 @@ export default function Admin() {
         {tab === 'people' ? (
           <>
             <Card style={{ gap: 10 }}>
-              <Text style={styles.strong}>Նոր աշխատող</Text>
+              <Button kind="dark" label="🔍 Գտնել վարորդ հավելվածում" onPress={() => router.push('/firm/drivers')} />
+              <Text style={styles.strong}>Նոր աշխատող (կոդով)</Text>
               <Field label="Անուն" value={inv.name} onChangeText={(v) => setInv({ ...inv, name: v })} />
               <Chips
                 options={[{ value: 'manager', label: 'Մենեջեր' }, { value: 'staff', label: 'Ներքին աշխատող' }, { value: 'driver', label: 'Վարորդ' }]}

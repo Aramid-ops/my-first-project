@@ -115,5 +115,31 @@ do $$ begin
   exception when raise_exception then if sqlerrm = 'պետք է մերժվեր' then raise; end if; end;
 end $$;
 
+-- 11. Չաթ. խանութ ↔ իր մենեջերը՝ այո; խանութ ↔ ուրիշ ֆիրմայի վարորդ՝ ոչ
+select pg_temp.as_user('00000000-0000-0000-0000-000000000001');   -- Կետ
+select open_chat('00000000-0000-0000-0000-000000000002') as chat \gset
+insert into messages (conversation_id, sender, body) values (:'chat', '00000000-0000-0000-0000-000000000001', 'Բարև, պանիր ունե՞ք');
+select pg_temp.as_user('00000000-0000-0000-0000-000000000002');
+do $$ begin assert (select count(*) from messages) = 1, 'Կարենը պետք է տեսներ նամակը'; end $$;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000030');   -- Վազգեն (այլ վարորդ)
+do $$ begin assert (select count(*) from messages) = 0, 'կողմնակի մարդը չպետք է տեսներ նամակը'; end $$;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000001');
+do $$ begin
+  begin perform open_chat('00000000-0000-0000-0000-000000000020'); raise exception 'պետք է մերժվեր';   -- Կարո (այլ ֆիրմա)
+  exception when raise_exception then if sqlerrm = 'պետք է մերժվեր' then raise; end if; end;
+end $$;
+
+-- 12. Ազատ վարորդ → ֆիրման հրավիրում է մեկ սեղմումով → վարորդը ընդունում է
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+insert into auth.users values ('00000000-0000-0000-0000-000000000031','free@x.am','{"kind":"driver","name":"Արսեն","license_categories":["C"],"vehicle_type":"truck"}');
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000007');   -- Աթենքի ղեկավար
+do $$ begin assert exists (select 1 from available_drivers() where name = 'Արսեն'), 'ազատ վարորդը պետք է երևար'; end $$;
+select invite_user('00000000-0000-0000-0000-000000000031', 'driver');
+select pg_temp.as_user('00000000-0000-0000-0000-000000000031');
+select answer_job_invite((select id from job_invites where status = 'pending' limit 1), true);
+do $$ begin assert (select role from employees where user_id = '00000000-0000-0000-0000-000000000031') = 'driver', 'պետք է դառնար վարորդ'; end $$;
+
 reset role;
 \echo ✅ Բազայի բոլոր ստուգումներն անցան
