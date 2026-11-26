@@ -8,7 +8,7 @@ import { colors } from '@/lib/theme';
 import { Button, Card, Field, Screen, styles } from '@/lib/ui';
 
 export default function SignIn() {
-  const { ready, session, signIn, signOut, userEmail } = useStore();
+  const { ready, session, signIn, signOut, userEmail, reload } = useStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -38,6 +38,7 @@ export default function SignIn() {
         {session?.kind === 'none' ? (
           <Card style={{ gap: 12 }}>
             <Text style={styles.body}>{userEmail} հաշիվը դեռ կցված չէ որևէ խանութի կամ ֆիրմայի։</Text>
+            <Button label="Թարմացնել" onPress={reload} />
             <Button kind="outline" label="Դուրս գալ" onPress={signOut} />
           </Card>
         ) : (
