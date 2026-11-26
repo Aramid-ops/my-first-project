@@ -23,3 +23,10 @@ language sql stable security invoker set search_path = public as $$
   order by 9 desc, p.in_stock desc, p.name
   limit max_rows
 $$;
+
+-- Ապրանքը փնտրվում է միայն անունով և կոդով (ոչ թե «1 տուփ = 12 հատ» տեքստով)
+drop index if exists products_search_trgm;
+alter table products drop column if exists search_key;
+alter table products add column search_key text
+  generated always as (search_skeleton(coalesce(name, '') || ' ' || coalesce(code, ''))) stored;
+create index products_search_trgm on products using gin (search_key gin_trgm_ops);
