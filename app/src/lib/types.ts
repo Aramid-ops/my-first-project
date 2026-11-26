@@ -38,6 +38,9 @@ export interface Shop {
   phone?: string;
   lat?: number;
   lng?: number;
+  legalName?: string;
+  email?: string;
+  contactPerson?: string;
 }
 
 /** Խանութի կապը ֆիրմայի հետ. ճիշտ մեկ մենեջեր (§2, կանոն 2) */
@@ -67,6 +70,40 @@ export interface Line {
   name: string;
   deliveryDays: Weekday[];
   driverId?: string;
+  /** «HH:MM». դրանից հետո պատվերը գնում է հաջորդ գծին */
+  orderCutoff?: string;
+}
+
+export type IssueKind = 'broken' | 'missing' | 'wrong' | 'expired';
+export const issueLabel: Record<IssueKind, string> = { broken: 'Ջարդված', missing: 'Պակաս', wrong: 'Սխալ ապրանք', expired: 'Ժամկետանց' };
+
+export interface Issue {
+  id: string;
+  orderId: string;
+  productId?: string;
+  kind: IssueKind;
+  qty?: number;
+  note?: string;
+  createdAt: string;
+}
+
+export interface Debt {
+  shopId: string;
+  firmId: string;
+  delivered: number;
+  paid: number;
+  pending: number;
+  debt: number;
+}
+
+export interface Payment {
+  id: string;
+  shopId: string;
+  firmId: string;
+  amount: number;
+  confirmed: boolean;
+  markedAt?: string;
+  note?: string;
 }
 
 export type Unit = 'հատ' | 'կգ' | 'գ' | 'լ' | 'մ' | 'տուփ' | 'բլոկ' | 'արկղ';
@@ -121,6 +158,7 @@ export interface Order {
   /** Ներսում ում մոտ է հիմա */
   assigneeId: string;
   driverId?: string;
+  invoiceNumber?: string;
   status: OrderStatus;
   deliveryDate: string; // YYYY-MM-DD
   items: OrderItem[];

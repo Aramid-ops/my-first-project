@@ -3,14 +3,14 @@ import { useState } from 'react';
 import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { matches } from '@/lib/search';
-import { decQty, deliveryLabel, formatAmd, incQty, nextDeliveryDate } from '@/lib/rules';
+import { decQty, deliveryLabel, formatAmd, incQty } from '@/lib/rules';
 import { useStore } from '@/lib/store';
 import { colors, radius } from '@/lib/theme';
 import { Button, Logo, Pill, Screen, styles } from '@/lib/ui';
 
 export default function SupplierCatalog() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { session, firms, links, employees, products, cart, setQty } = useStore();
+  const { session, firms, links, employees, products, cart, setQty, deliveryDate, cutoffOf } = useStore();
   const [filter, setFilter] = useState('');
   if (session?.kind !== 'shop') return <Redirect href="/" />;
   const firm = firms.find((f) => f.id === id);
@@ -30,7 +30,8 @@ export default function SupplierCatalog() {
         <View style={{ flex: 1 }}>
           <Text style={[styles.strong, { fontSize: 18 }]}>{firm.name}</Text>
           <Text style={styles.muted}>
-            {manager.name} · առաքում՝ {deliveryLabel(nextDeliveryDate(link.deliveryDays))}
+            {manager.name} · առաքում՝ {deliveryLabel(deliveryDate(link))}
+            {cutoffOf(link) ? ` · պատվիրեք մինչև ${cutoffOf(link)}` : ''}
           </Text>
         </View>
         {manager.phone ? (

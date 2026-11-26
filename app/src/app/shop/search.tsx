@@ -8,7 +8,7 @@ import { matches } from '@/lib/search';
 import { useStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { colors, radius } from '@/lib/theme';
-import { Logo, Pill, Screen, styles } from '@/lib/ui';
+import { Button, Logo, Pill, Screen, styles } from '@/lib/ui';
 
 type Hit = {
   product_id: string;
@@ -22,7 +22,8 @@ type Hit = {
 };
 
 export default function Search() {
-  const { session, firms, links, employees } = useStore();
+  const { session, firms, links, employees, requestJoin } = useStore();
+  const [joinMsg, setJoinMsg] = useState<string | null>(null);
   const [q, setQ] = useState('');
   const [hits, setHits] = useState<Hit[]>([]);
   const [loading, setLoading] = useState(false);
@@ -86,6 +87,7 @@ export default function Search() {
           <Text style={styles.muted}>Կարող եք գրել հայերեն, ռուսերեն կամ լատինատառ, օր.՝ «կաթ», «кат», «kat», կամ արտիկուլ՝ «KT0002»</Text>
         ) : null}
 
+        {joinMsg ? <Text style={{ color: colors.warnText }}>{joinMsg}</Text> : null}
         {firmHits.length > 0 ? <Text style={[styles.strong, { fontSize: 14, color: colors.textMuted }]}>Մատակարարներ</Text> : null}
         {firmHits.map((f) => {
           const link = linkFor(f.id);
@@ -100,7 +102,13 @@ export default function Search() {
                 <Text style={styles.strong}>{f.name}</Text>
                 <Text style={styles.muted}>{f.category}</Text>
               </View>
-              {link?.status === 'active' ? <Pill text="Իմ մատակարարը" /> : <Pill text="Միանալ (շուտով)" tone="info" />}
+              {link?.status === 'active' ? (
+                <Pill text="Իմ մատակարարը" />
+              ) : link?.status === 'pending' ? (
+                <Pill text="Հայտը ուղարկված է" tone="info" />
+              ) : (
+                <Button label="Միանալ" onPress={async () => setJoinMsg(await requestJoin(f.id))} style={{ minHeight: 40 }} />
+              )}
             </Pressable>
           );
         })}

@@ -2,12 +2,12 @@ import { Redirect, router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
-import { deliveryLabel, formatAmd, formatQty, nextDeliveryDate } from '@/lib/rules';
+import { deliveryLabel, formatAmd, formatQty } from '@/lib/rules';
 import { useStore } from '@/lib/store';
 import { Button, Logo, Pill, Screen, styles, Title } from '@/lib/ui';
 
 export default function Cart() {
-  const { session, cart, products, firms, links, employees, sendCart } = useStore();
+  const { session, cart, products, firms, links, employees, sendCart, deliveryDate } = useStore();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   if (session?.kind !== 'shop') return <Redirect href="/" />;
@@ -50,7 +50,7 @@ export default function Cart() {
                     <Text style={styles.strong}>{f.name}</Text>
                     <Text style={styles.muted}>Մենեջեր՝ {manager?.name}</Text>
                   </View>
-                  <Pill text={deliveryLabel(nextDeliveryDate(link!.deliveryDays))} />
+                  <Pill text={deliveryLabel(deliveryDate(link!))} />
                 </View>
                 {items.map(({ p, qty }) => (
                   <View key={p.id} style={{ flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#F0EEE7', paddingTop: 8 }}>

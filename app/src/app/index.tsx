@@ -1,11 +1,11 @@
 // Մուտք էլ. փոստով և գաղտնաբառով (Supabase Auth)
-import { Redirect } from 'expo-router';
+import { Link, Redirect } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 
 import { useStore } from '@/lib/store';
-import { colors, radius } from '@/lib/theme';
-import { Button, Card, Screen, styles } from '@/lib/ui';
+import { colors } from '@/lib/theme';
+import { Button, Card, Field, Screen, styles } from '@/lib/ui';
 
 export default function SignIn() {
   const { ready, session, signIn, signOut, userEmail } = useStore();
@@ -42,27 +42,8 @@ export default function SignIn() {
           </Card>
         ) : (
           <Card style={{ gap: 12 }}>
-            <Text style={styles.muted} nativeID="email-label">Էլ. փոստ</Text>
-            <TextInput
-              accessibilityLabelledBy="email-label"
-              accessibilityLabel="Էլ. փոստ"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              autoComplete="email"
-              style={input}
-            />
-            <Text style={styles.muted} nativeID="pw-label">Գաղտնաբառ</Text>
-            <TextInput
-              accessibilityLabelledBy="pw-label"
-              accessibilityLabel="Գաղտնաբառ"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoComplete="password"
-              style={input}
-            />
+            <Field label="Էլ. փոստ" value={email} onChangeText={setEmail} keyboardType="email-address" />
+            <Field label="Գաղտնաբառ" value={password} onChangeText={setPassword} secure />
             {error ? <Text style={{ color: colors.warnText }}>{error}</Text> : null}
             <Button
               label={busy ? 'Մուտք…' : 'Մուտք'}
@@ -75,6 +56,9 @@ export default function SignIn() {
                 if (err) setError('Սխալ էլ. փոստ կամ գաղտնաբառ');
               }}
             />
+            <Link href="/signup" style={{ textAlign: 'center', color: colors.primary, fontWeight: '600', paddingVertical: 8 }}>
+              Նոր խանութ եք. գրանցվել
+            </Link>
           </Card>
         )}
       </View>
@@ -82,13 +66,3 @@ export default function SignIn() {
   );
 }
 
-const input = {
-  minHeight: 48,
-  borderWidth: 1,
-  borderColor: colors.borderStrong,
-  borderRadius: radius.md,
-  paddingHorizontal: 14,
-  fontSize: 16,
-  backgroundColor: colors.card,
-  color: colors.text,
-} as const;

@@ -4,9 +4,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session as AuthSession } from '@supabase/supabase-js';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
+import { registerPush } from './push';
 import { nextDeliveryDate, toISODate } from './rules';
 import { supabase } from './supabase';
-import type { Employee, EmployeeRole, Firm, Line, Order, OrderStatus, Product, Shop, ShopFirmLink, Team, Unit, Weekday } from './types';
+import type { Debt, Employee, EmployeeRole, Firm, Issue, IssueKind, Line, Order, OrderStatus, Payment, Product, Shop, ShopFirmLink, Team, Unit, Weekday } from './types';
 
 export type Session =
   | { kind: 'shop'; shopId: string }
@@ -29,13 +30,30 @@ interface Store {
   orders: Order[];
   teams: Team[];
   lines: Line[];
+  issues: Issue[];
+  debts: Debt[];
+  payments: Payment[];
   reload: () => Promise<void>;
+
+  requestJoin: (firmId: string) => Promise<string | null>;
+  acceptRequest: (shopId: string, lineId: string | null) => Promise<string | null>;
+  updateShop: (patch: Record<string, string>) => Promise<string | null>;
+  reportIssue: (orderId: string, productId: string, kind: IssueKind, qty: number | null, note: string) => Promise<string | null>;
+  markPaid: (firmId: string, amount: number, note: string) => Promise<string | null>;
+  confirmPayment: (paymentId: string) => Promise<string | null>;
+  setInvoice: (orderId: string, num: string) => Promise<string | null>;
+  placeOrderForShop: (shopId: string, items: { productId: string; qty: number }[]) => Promise<string | null>;
+  repeatOrder: (order: Order) => number;
+  /** Առաքման հաջորդ օրը՝ գծի օրերով և վերջնաժամով */
+  deliveryDate: (link: ShopFirmLink) => Date;
+  cutoffOf: (link: ShopFirmLink) => string | undefined;
 
   /** Փոխանցման թեկնածուներ. իմ խմբերի անդամները (ներքին աշխատողներ և վարորդներ), առաջարկվողները՝ առաջինը */
   forwardCandidates: (order: Order) => { employee: Employee; suggested: boolean }[];
   setLinkLine: (shopId: string, firmId: string, lineId: string | null) => Promise<string | null>;
   setLinkManager: (shopId: string, firmId: string, managerId: string) => Promise<string | null>;
   setLineDriver: (lineId: string, driverId: string | null) => Promise<string | null>;
+  setLineCutoff: (lineId: string, cutoff: string | null) => Promise<string | null>;
   toggleTeamMember: (teamId: string, employeeId: string) => Promise<string | null>;
 
   cart: Record<string, number>;
@@ -81,9 +99,22 @@ const mapEmployee = (r: any): Employee => ({
   defaultForwardToId: r.default_forward_to ?? undefined,
   phone: r.phone ?? undefined,
 });
-const mapShop = (r: any): Shop => ({ id: r.id, name: r.name, taxId: r.tax_id, city: r.city, district: r.district ?? '', address: r.address ?? '', phone: r.phone ?? undefined, lat: r.lat ?? undefined, lng: r.lng ?? undefined });
+const mapShop = (r: any): Shop => ({
+  id: r.id,
+  name: r.name,
+  taxId: r.tax_id,
+  city: r.city,
+  district: r.district ?? '',
+  address: r.address ?? '',
+  phone: r.phone ?? undefined,
+  lat: r.lat ?? undefined,
+  lng: r.lng ?? undefined,
+  legalName: r.legal_name ?? undefined,
+  email: r.email ?? undefined,
+  contactPerson: r.contact_person ?? undefined,
+});
 const mapLink = (r: any): ShopFirmLink => ({ shopId: r.shop_id, firmId: r.firm_id, managerId: r.manager_id, status: r.status, deliveryDays: (r.delivery_days ?? []) as Weekday[], lineId: r.line_id ?? undefined });
-const mapLine = (r: any): Line => ({ id: r.id, firmId: r.firm_id, teamId: r.team_id ?? undefined, name: r.name, deliveryDays: (r.delivery_days ?? []) as Weekday[], driverId: r.driver_id ?? undefined });
+const mapLine = (r: any): Line => ({ id: r.id, firmId: r.firm_id, teamId: r.team_id ?? undefined, name: r.name, deliveryDays: (r.delivery_days ?? []) as Weekday[], driverId: r.driver_id ?? undefined, orderCutoff: r.order_cutoff ? String(r.order_cutoff).slice(0, 5) : undefined });
 const mapProduct = (r: any): Product => ({
   id: r.id,
   sku: r.sku ?? undefined,
@@ -105,6 +136,7 @@ const mapOrder = (r: any): Order => ({
   managerId: r.manager_id,
   assigneeId: r.assignee_id ?? r.manager_id,
   driverId: r.driver_id ?? undefined,
+  invoiceNumber: r.invoice_number ?? undefined,
   status: r.status as OrderStatus,
   deliveryDate: r.delivery_date,
   createdAt: r.created_at,
@@ -127,6 +159,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [lines, setLines] = useState<Line[]>([]);
+  const [issues, setIssues] = useState<Issue[]>([]);
+  const [debts, setDebts] = useState<Debt[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [cart, setCart] = useState<Record<string, number>>({});
 
   useEffect(() => {
@@ -145,11 +180,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
     const cacheKey = `snapshot:${auth.user.id}`;
     const uid = auth.user.id;
-    const [tm, tmm, ln] = await Promise.all([
+    const [tm, tmm, ln, iss, dbt, pay] = await Promise.all([
       supabase.from('teams').select('*'),
       supabase.from('team_members').select('*'),
       supabase.from('lines').select('*'),
+      supabase.from('order_issues').select('*').order('created_at', { ascending: false }),
+      supabase.rpc('debts'),
+      supabase.from('payments').select('*').order('marked_paid_by_shop_at', { ascending: false }),
     ]);
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    setIssues((iss.data ?? []).map((r: any) => ({ id: r.id, orderId: r.order_id, productId: r.product_id ?? undefined, kind: r.kind, qty: r.qty == null ? undefined : Number(r.qty), note: r.note ?? undefined, createdAt: r.created_at })));
+    setDebts((dbt.data ?? []).map((r: any) => ({ shopId: r.shop_id, firmId: r.firm_id, delivered: Number(r.delivered), paid: Number(r.paid), pending: Number(r.pending), debt: Number(r.debt) })));
+    setPayments((pay.data ?? []).map((r: any) => ({ id: r.id, shopId: r.shop_id, firmId: r.firm_id, amount: Number(r.amount), confirmed: !!r.confirmed_at, markedAt: r.marked_paid_by_shop_at ?? undefined, note: r.note ?? undefined })));
+    /* eslint-enable @typescript-eslint/no-explicit-any */
     const [f, e, s, l, p, o, me, member] = await Promise.all([
       supabase.from('firms').select('*'),
       supabase.from('employees').select('*'),
@@ -221,6 +264,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     reload();
   }, [reload]);
 
+  useEffect(() => {
+    if (auth) registerPush(auth.user.id);
+  }, [auth]);
+
   // Ակնթարթային թարմացում. նոր պատվեր կամ փոփոխություն → վերբեռնել
   useEffect(() => {
     if (!auth) return;
@@ -258,7 +305,88 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       orders,
       teams,
       lines,
+      issues,
+      debts,
+      payments,
       reload,
+      requestJoin: async (firmId) => {
+        const { error } = await supabase.rpc('request_join', { p_firm: firmId });
+        await reload();
+        return error?.message ?? null;
+      },
+      acceptRequest: async (shopId, lineId) => {
+        if (session?.kind !== 'employee') return 'Մուտք գործեք որպես աշխատող';
+        const me = employees.find((x) => x.id === session.employeeId);
+        const link = links.find((l) => l.shopId === shopId && l.firmId === me?.firmId);
+        const managerId = me?.role === 'manager' ? me.id : link?.managerId;
+        if (!managerId) return 'Ընտրեք մենեջեր';
+        const { error } = await supabase
+          .from('shop_firm_links')
+          .update({ status: 'active', manager_id: managerId, line_id: lineId })
+          .eq('shop_id', shopId)
+          .eq('firm_id', me!.firmId);
+        await reload();
+        return error?.message ?? null;
+      },
+      updateShop: async (patch) => {
+        if (session?.kind !== 'shop') return 'Մուտք գործեք որպես խանութ';
+        const { error } = await supabase.from('shops').update(patch).eq('id', session.shopId);
+        await reload();
+        return error?.message ?? null;
+      },
+      reportIssue: async (orderId, productId, kind, qty, note) => {
+        const { error } = await supabase.from('order_issues').insert({ order_id: orderId, product_id: productId, kind, qty, note: note || null });
+        await reload();
+        return error?.message ?? null;
+      },
+      markPaid: async (firmId, amount, note) => {
+        if (session?.kind !== 'shop') return 'Մուտք գործեք որպես խանութ';
+        const { error } = await supabase.from('payments').insert({ shop_id: session.shopId, firm_id: firmId, amount, note: note || null });
+        await reload();
+        return error?.message ?? null;
+      },
+      confirmPayment: async (paymentId) => {
+        const { error } = await supabase.from('payments').update({ confirmed_at: new Date().toISOString() }).eq('id', paymentId);
+        await reload();
+        return error?.message ?? null;
+      },
+      setInvoice: async (orderId, num) => {
+        const { error } = await supabase.from('orders').update({ invoice_number: num || null }).eq('id', orderId);
+        if (!error) await addEvent(orderId, `Ֆակտուրա № ${num}`);
+        await reload();
+        return error?.message ?? null;
+      },
+      placeOrderForShop: async (shopId, items) => {
+        if (session?.kind !== 'employee') return 'Մուտք գործեք որպես մենեջեր';
+        const me = employees.find((x) => x.id === session.employeeId);
+        const link = links.find((l) => l.shopId === shopId && l.firmId === me?.firmId);
+        const line = lines.find((x) => x.id === link?.lineId);
+        const { error } = await supabase.rpc('place_order_for_shop', {
+          p_shop: shopId,
+          p_firm: me!.firmId,
+          p_delivery: toISODate(nextDeliveryDate(link?.deliveryDays ?? [], new Date(), line?.orderCutoff)),
+          p_items: items.map((x) => ({ product_id: x.productId, qty: x.qty })),
+        });
+        await reload();
+        return error?.message ?? null;
+      },
+      deliveryDate: (link) => nextDeliveryDate(link.deliveryDays, new Date(), lines.find((x) => x.id === link.lineId)?.orderCutoff),
+      cutoffOf: (link) => lines.find((x) => x.id === link.lineId)?.orderCutoff,
+      repeatOrder: (order) => {
+        let n = 0;
+        setCart((c) => {
+          const next = { ...c };
+          for (const it of order.items) {
+            const p = products.find((x) => x.id === it.productId);
+            if (p?.inStock) {
+              next[p.id] = it.qty;
+              n++;
+            }
+          }
+          return next;
+        });
+        return n;
+      },
       forwardCandidates: (order) => {
         if (session?.kind !== 'employee') return [];
         const me = employees.find((x) => x.id === session.employeeId);
@@ -285,6 +413,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
       setLineDriver: async (lineId, driverId) => {
         const { error } = await supabase.from('lines').update({ driver_id: driverId }).eq('id', lineId);
+        await reload();
+        return error?.message ?? null;
+      },
+      setLineCutoff: async (lineId, cutoff) => {
+        const { error } = await supabase.from('lines').update({ order_cutoff: cutoff }).eq('id', lineId);
         await reload();
         return error?.message ?? null;
       },
@@ -319,7 +452,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           const { error } = await supabase.rpc('place_order', {
             p_shop: session.shopId,
             p_firm: firmId,
-            p_delivery: toISODate(nextDeliveryDate(link.deliveryDays)),
+            p_delivery: toISODate(nextDeliveryDate(link.deliveryDays, new Date(), lines.find((x) => x.id === link.lineId)?.orderCutoff)),
             p_items: items.map(({ p, qty }) => ({ product_id: p.id, qty })),
           });
           if (error) {
@@ -357,7 +490,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         await reload();
       },
     };
-  }, [ready, session, auth, firms, employees, shops, links, products, orders, teams, lines, cart, reload]);
+  }, [ready, session, auth, firms, employees, shops, links, products, orders, teams, lines, issues, debts, payments, cart, reload]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

@@ -27,7 +27,7 @@ export default function ShopOrders() {
           const status = shopStatusLabel[o.status];
           const tone = o.status === 'returned' ? 'warn' : o.status === 'sent' ? 'info' : 'ok';
           return (
-            <View key={o.id} style={[styles.card, { flexDirection: 'row', gap: 12, alignItems: 'center' }]}>
+            <Pressable key={o.id} accessibilityRole="button" onPress={() => router.push(`/shop/order/${o.id}`)} style={[styles.card, { flexDirection: 'row', gap: 12, alignItems: 'center' }]}>
               <Logo name={f.name} bg={f.color.bg} fg={f.color.fg} size={44} />
               <View style={{ flex: 1, gap: 4 }}>
                 <Text style={styles.strong}>{f.name}</Text>
@@ -37,7 +37,8 @@ export default function ShopOrders() {
                 </Text>
                 <Pill text={status} tone={tone} />
               </View>
-            </View>
+              <Text style={{ fontSize: 20, color: '#8A918D' }}>›</Text>
+            </Pressable>
           );
         })}
       </ScrollView>

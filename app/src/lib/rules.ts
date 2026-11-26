@@ -36,10 +36,12 @@ export function weekdayOf(d: Date): Weekday {
  * Առաքման հաջորդ օրը՝ ըստ գծի օրերի (§4.2)։
  * Պատվերը ամենաշուտը վաղն է առաքվում; դատարկ ցուցակ = ամեն օր։
  */
-export function nextDeliveryDate(days: Weekday[], from: Date = new Date()): Date {
+export function nextDeliveryDate(days: Weekday[], from: Date = new Date(), cutoff?: string): Date {
   const d = new Date(from);
   d.setHours(0, 0, 0, 0);
-  for (let i = 1; i <= 7; i++) {
+  // Վերջնաժամից հետո՝ վաղվա գիծը բաց է թողնվում (պատվերը գնում է հաջորդ գծին)
+  const late = !!cutoff && `${`${from.getHours()}`.padStart(2, '0')}:${`${from.getMinutes()}`.padStart(2, '0')}` >= cutoff;
+  for (let i = late ? 2 : 1; i <= 8; i++) {
     const c = new Date(d);
     c.setDate(d.getDate() + i);
     if (days.length === 0 || days.includes(weekdayOf(c))) return c;

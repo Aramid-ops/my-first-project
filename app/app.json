@@ -38,7 +38,8 @@
         {
           "locationWhenInUsePermission": "Տեղը վերցվում է միայն «Մեկնեցի» և «Առաքված» սեղմելիս՝ օրվա կիլոմետրաժը հաշվելու համար։"
         }
-      ]
+      ],
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": false,

@@ -1,6 +1,7 @@
 // Փոքր, կրկնվող UI մասեր
-import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
+import { useState, type ReactNode } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, View, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, radius, touch } from './theme';
@@ -141,6 +142,77 @@ export function Chips<T extends string>({
           </Pressable>
         );
       })}
+    </View>
+  );
+}
+
+/** Դաշտ՝ վերնագրով */
+export function Field({
+  label,
+  value,
+  onChangeText,
+  secure,
+  keyboardType,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChangeText: (v: string) => void;
+  secure?: boolean;
+  keyboardType?: 'default' | 'email-address' | 'phone-pad' | 'number-pad';
+  placeholder?: string;
+}) {
+  const [hidden, setHidden] = useState(true);
+  return (
+    <View style={{ gap: 4 }}>
+      <Text style={styles.muted}>{label}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.borderStrong, borderRadius: radius.md, backgroundColor: colors.card }}>
+        <TextInput
+          accessibilityLabel={label}
+          value={value}
+          onChangeText={onChangeText}
+          secureTextEntry={secure && hidden}
+          keyboardType={keyboardType}
+          placeholder={placeholder}
+          autoCapitalize={keyboardType === 'email-address' || secure ? 'none' : 'sentences'}
+          autoCorrect={false}
+          style={{ flex: 1, minHeight: 48, paddingHorizontal: 14, fontSize: 16, color: colors.text }}
+        />
+        {secure ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={hidden ? 'Ցույց տալ գաղտնաբառը' : 'Թաքցնել գաղտնաբառը'}
+            onPress={() => setHidden(!hidden)}
+            style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontSize: 18 }}>{hidden ? '👁' : '🙈'}</Text>
+          </Pressable>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+/** Տող՝ պատճենելու կոճակով (📋) */
+export function CopyRow({ label, value }: { label: string; value?: string | null }) {
+  const [done, setDone] = useState(false);
+  if (!value) return null;
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      <Text style={[styles.muted, { width: 96 }]}>{label}</Text>
+      <Text style={[styles.body, { flex: 1 }]} selectable>
+        {value}
+      </Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Պատճենել ${label}`}
+        onPress={async () => {
+          await Clipboard.setStringAsync(value);
+          setDone(true);
+          setTimeout(() => setDone(false), 1500);
+        }}
+        style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}>
+        <Text>{done ? '✓' : '📋'}</Text>
+      </Pressable>
     </View>
   );
 }
