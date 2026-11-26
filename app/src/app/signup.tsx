@@ -50,7 +50,7 @@ export default function SignUp() {
   const common = !f.name.trim() ? 'Լրացրեք անունը' : !phoneOk(f.phone) ? 'Լրացրեք հեռախոսը' : !emailOk(f.email) ? 'Լրացրեք էլ. փոստը' : f.password.length < 8 ? 'Գաղտնաբառը՝ առնվազն 8 նիշ' : null;
   const problem =
     kind === 'employee' ? (f.code.length !== 6 ? 'Գրեք 6-նիշ կոդը' : !emailOk(f.email) ? 'Լրացրեք էլ. փոստը' : f.password.length < 8 ? 'Գաղտնաբառը՝ առնվազն 8 նիշ' : null)
-    : kind === 'shop' ? (!f.shop_name || !f.legal_name ? 'Լրացրեք անվանումները' : !/^\d{8}$/.test(f.tax_id) ? 'ՀՎՀՀ-ն պետք է լինի 8 թիվ' : !f.district || !f.address ? 'Լրացրեք հասցեն' : common)
+    : kind === 'shop' ? (!f.shop_name ? 'Լրացրեք անունը' : !/^\d{8}$/.test(f.tax_id) ? 'ՀՎՀՀ-ն պետք է լինի 8 թիվ' : !f.district || !f.address ? 'Լրացրեք հասցեն' : common)
     : kind === 'manager' ? (!f.firm_id && !f.firm_name.trim() ? 'Ընտրեք կամ գրեք ֆիրման' : common)
     : kind === 'driver' ? (licenses.length === 0 ? 'Նշեք վարորդական իրավունքի կարգը' : !f.vehicle_type ? 'Ընտրեք մեքենայի տեսակը' : common)
     : !f.firm_name.trim() ? 'Լրացրեք ֆիրմայի անունը' : f.tax_id && !/^\d{8}$/.test(f.tax_id) ? 'ՀՎՀՀ-ն պետք է լինի 8 թիվ' : common;
@@ -58,13 +58,13 @@ export default function SignUp() {
   const metadata = () => {
     switch (kind) {
       case 'shop':
-        return { kind, name: f.shop_name, legal_name: f.legal_name, tax_id: f.tax_id, city: 'Երևան', district: f.district, address: f.address, phone: f.phone, email: f.email, contact_person: f.contact_person || f.name };
+        return { kind, name: f.shop_name, legal_name: f.legal_name || f.shop_name, tax_id: f.tax_id, city: 'Երևան', district: f.district, address: f.address, phone: f.phone, email: f.email, contact_person: f.contact_person || f.name };
       case 'manager':
         return { kind, name: f.name, phone: f.phone, firm_id: f.firm_id || null, firm_name: f.firm_name, category: f.category };
       case 'driver':
         return { kind, name: f.name, phone: f.phone, address: f.address, license_categories: licenses, vehicle_type: f.vehicle_type, vehicle_model: f.vehicle_model, plate: f.plate, capacity_kg: f.capacity_kg, refrigerated: fridge };
       case 'firm':
-        return { kind, name: f.name, phone: f.phone, firm_id: f.firm_id || null, firm_name: f.firm_name, legal_name: f.legal_name, tax_id: f.tax_id, address: f.address, category: f.category };
+        return { kind, name: f.name, phone: f.phone, firm_id: f.firm_id || null, firm_name: f.firm_name, legal_name: f.legal_name || f.firm_name, tax_id: f.tax_id, address: f.address, category: f.category };
       default:
         return { kind, code: f.code };
     }
@@ -92,8 +92,8 @@ export default function SignUp() {
         {kind === 'shop' ? (
           <>
             <Card style={{ gap: 12 }}>
-              <Field label="Ցուցանակի անուն (օր.՝ Սրճարան «Կետ»)" value={f.shop_name} onChangeText={set('shop_name')} />
-              <Field label="Իրավաբանական անվանում (օր.՝ «Կետ» ՍՊԸ)" value={f.legal_name} onChangeText={set('legal_name')} />
+              <Field label="Խանութի անուն (օր.՝ Սրճարան «Կետ»)" value={f.shop_name} onChangeText={set('shop_name')} />
+              <Field label="Իրավաբանական անվանում՝ միայն եթե տարբեր է (օր.՝ «Կետ» ՍՊԸ)" value={f.legal_name} onChangeText={set('legal_name')} />
               <Field label="ՀՎՀՀ" value={f.tax_id} onChangeText={(v) => set('tax_id')(v.replace(/\D/g, '').slice(0, 8))} keyboardType="number-pad" />
             </Card>
             <Card style={{ gap: 12 }}>
@@ -172,7 +172,7 @@ export default function SignUp() {
             {kind === 'firm' || !f.firm_id ? <Field label="Կատեգորիա (օր.՝ Կաթնամթերք)" value={f.category} onChangeText={set('category')} /> : null}
             {kind === 'firm' ? (
               <>
-                <Field label="Իրավաբանական անվանում" value={f.legal_name} onChangeText={set('legal_name')} />
+                <Field label="Իրավաբանական անվանում՝ միայն եթե տարբեր է (օր.՝ «Աթենք» ՍՊԸ)" value={f.legal_name} onChangeText={set('legal_name')} />
                 <Field label="ՀՎՀՀ" value={f.tax_id} onChangeText={(v) => set('tax_id')(v.replace(/\D/g, '').slice(0, 8))} keyboardType="number-pad" />
                 <Field label="Պահեստի հասցե" value={f.address} onChangeText={set('address')} />
               </>
