@@ -61,6 +61,18 @@ export interface ShopFirmLink {
   creditLimit?: number;
 }
 
+export interface DriverProfile {
+  name: string;
+  phone?: string;
+  address?: string;
+  licenseCategories: string[];
+  vehicleType?: string;
+  vehicleModel?: string;
+  plate?: string;
+  capacityKg?: number;
+  refrigerated: boolean;
+}
+
 export interface SavedList {
   id: string;
   name: string;

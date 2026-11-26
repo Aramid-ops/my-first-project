@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { formatAmd, toISODate } from '@/lib/rules';
+import { InviteButton } from '@/components/invite-button';
 import { useStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { colors } from '@/lib/theme';
@@ -40,9 +41,12 @@ export default function Admin() {
     <Screen>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <Text style={{ fontSize: 15, fontWeight: '700', color: colors.dark }}>Մատակարար</Text>
-        <Pressable accessibilityRole="button" onPress={() => { signOut(); router.replace('/'); }} hitSlop={12}>
+        <View style={{ flexDirection: 'row', gap: 16 }}>
+          <InviteButton />
+          <Pressable accessibilityRole="button" onPress={() => { signOut(); router.replace('/'); }} hitSlop={12}>
           <Text style={styles.muted}>Դուրս գալ</Text>
         </Pressable>
+        </View>
       </View>
       <Title sub={`${firm.name} · ղեկավար`}>Կարգավորումներ</Title>
 

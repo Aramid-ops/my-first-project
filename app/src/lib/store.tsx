@@ -7,11 +7,12 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { registerPush } from './push';
 import { nextDeliveryDate, toISODate } from './rules';
 import { supabase } from './supabase';
-import type { Debt, Employee, SavedList, EmployeeRole, Firm, Issue, IssueKind, Line, Order, OrderStatus, Payment, Product, Shop, ShopFirmLink, Team, Unit, Weekday } from './types';
+import type { Debt, DriverProfile, Employee, SavedList, EmployeeRole, Firm, Issue, IssueKind, Line, Order, OrderStatus, Payment, Product, Shop, ShopFirmLink, Team, Unit, Weekday } from './types';
 
 export type Session =
   | { kind: 'shop'; shopId: string }
   | { kind: 'employee'; employeeId: string; role: EmployeeRole }
+  | { kind: 'driverSelf' } // անկախ վարորդ (ֆիրմայի աշխատող չէ)
   | { kind: 'none' } // մուտք է գործել, բայց ոչ մի դերի կցված չէ
   | null;
 
@@ -34,6 +35,8 @@ interface Store {
   debts: Debt[];
   payments: Payment[];
   savedLists: SavedList[];
+  driverProfile: DriverProfile | null;
+  acceptInvite: (code: string) => Promise<{ firm?: string; error?: string }>;
   /** Խանութի իրական գինը (զեղչով / անհատական) */
   priceOf: (p: Product) => number;
   reload: () => Promise<void>;
@@ -178,6 +181,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [debts, setDebts] = useState<Debt[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [savedLists, setSavedLists] = useState<SavedList[]>([]);
+  const [driverProfile, setDriverProfile] = useState<DriverProfile | null>(null);
   const [prices, setPrices] = useState<Record<string, number>>({});
   const [cart, setCart] = useState<Record<string, number>>({});
 
@@ -210,6 +214,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setDebts((dbt.data ?? []).map((r: any) => ({ shopId: r.shop_id, firmId: r.firm_id, delivered: Number(r.delivered), paid: Number(r.paid), pending: Number(r.pending), debt: Number(r.debt) })));
     setPayments((pay.data ?? []).map((r: any) => ({ id: r.id, shopId: r.shop_id, firmId: r.firm_id, amount: Number(r.amount), confirmed: !!r.confirmed_at, markedAt: r.marked_paid_by_shop_at ?? undefined, note: r.note ?? undefined })));
     /* eslint-enable @typescript-eslint/no-explicit-any */
+    const dp = await supabase.from('driver_profiles').select('*').eq('user_id', uid).maybeSingle();
+    setDriverProfile(
+      dp.data
+        ? {
+            name: dp.data.name,
+            phone: dp.data.phone ?? undefined,
+            address: dp.data.address ?? undefined,
+            licenseCategories: dp.data.license_categories ?? [],
+            vehicleType: dp.data.vehicle_type ?? undefined,
+            vehicleModel: dp.data.vehicle_model ?? undefined,
+            plate: dp.data.plate ?? undefined,
+            capacityKg: dp.data.capacity_kg == null ? undefined : Number(dp.data.capacity_kg),
+            refrigerated: !!dp.data.refrigerated,
+          }
+        : null,
+    );
     const [f, e, s, l, p, o, me, member] = await Promise.all([
       supabase.from('firms').select('*'),
       supabase.from('employees').select('*'),
@@ -262,7 +282,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ? { kind: 'shop', shopId: member.data.shop_id }
         : me.data
           ? { kind: 'employee', employeeId: me.data.id, role: me.data.role }
-          : { kind: 'none' }) as Session,
+          : dp.data
+            ? { kind: 'driverSelf' }
+            : { kind: 'none' }) as Session,
     };
     AsyncStorage.setItem(cacheKey, JSON.stringify(snap)).catch(() => {});
     setTeams(snap.teams);
@@ -337,6 +359,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       debts,
       payments,
       savedLists,
+      driverProfile,
+      acceptInvite: async (code) => {
+        const { data, error } = await supabase.rpc('accept_invite', { p_code: code });
+        await reload();
+        return error ? { error: error.message } : { firm: data as string };
+      },
       priceOf: (p) => prices[p.id] ?? p.price,
       reload,
       saveProduct: async (p) => {
@@ -586,7 +614,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         await reload();
       },
     };
-  }, [ready, session, auth, firms, employees, shops, links, products, orders, teams, lines, issues, debts, payments, savedLists, prices, cart, reload]);
+  }, [ready, session, auth, firms, employees, shops, links, products, orders, teams, lines, issues, debts, payments, savedLists, driverProfile, prices, cart, reload]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

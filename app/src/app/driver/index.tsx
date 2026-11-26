@@ -10,6 +10,7 @@ import { driverDays, earlierThanUsualMin, type FinishedDayRow } from '@/lib/driv
 import { currentPoint } from '@/lib/geo';
 import { orderByNearest } from '@/lib/route';
 import { formatQty, formatTime, toISODate } from '@/lib/rules';
+import { InviteButton } from '@/components/invite-button';
 import { useStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { colors, radius } from '@/lib/theme';
@@ -125,9 +126,12 @@ export default function DriverStops() {
             Այսօր՝ {done.length} / {done.length + open.length}
           </Text>
         </View>
-        <Pressable accessibilityRole="button" onPress={() => { signOut(); router.replace('/'); }} hitSlop={12}>
+        <View style={{ flexDirection: 'row', gap: 16 }}>
+          <InviteButton />
+          <Pressable accessibilityRole="button" onPress={() => { signOut(); router.replace('/'); }} hitSlop={12}>
           <Text style={styles.muted}>Դուրս գալ</Text>
         </Pressable>
+        </View>
       </View>
 
       <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 12 }}>

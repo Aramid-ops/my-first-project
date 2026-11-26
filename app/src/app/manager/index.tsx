@@ -8,6 +8,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { ForwardPicker } from '@/components/forward-picker';
 import { deliveryLabel, formatAmd, formatQty, formatTime } from '@/lib/rules';
+import { InviteButton } from '@/components/invite-button';
 import { useStore } from '@/lib/store';
 import { colors, radius } from '@/lib/theme';
 import { issueLabel, type Order } from '@/lib/types';
@@ -56,9 +57,12 @@ export default function Inbox() {
     <Screen>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <Text style={{ fontSize: 15, fontWeight: '700', color: colors.dark }}>Մատակարար</Text>
-        <Pressable accessibilityRole="button" onPress={() => { s.signOut(); router.replace('/'); }} hitSlop={12}>
+        <View style={{ flexDirection: 'row', gap: 16 }}>
+          <InviteButton />
+          <Pressable accessibilityRole="button" onPress={() => { s.signOut(); router.replace('/'); }} hitSlop={12}>
           <Text style={styles.muted}>Դուրս գալ</Text>
         </Pressable>
+        </View>
       </View>
       <Title sub={`${firm.name} · ${roleLabel}`}>Բարև, {me.name}</Title>
       <View style={{ marginBottom: 12, gap: 8 }}>

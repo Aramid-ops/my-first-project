@@ -98,5 +98,22 @@ do $$ begin
   assert (select count(*) from employees e join firms f on f.id = e.firm_id where f.tax_id = '11112222') = 2, 'մենեջերը պետք է մնար ֆիրմայում';
 end $$;
 
+-- 10. Անկախ վարորդ → պրոֆիլ; ֆիրման հրավիրում է → կոդով դառնում է աշխատող
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+insert into auth.users values ('00000000-0000-0000-0000-000000000030','drv@x.am',
+  '{"kind":"driver","name":"Վազգեն","phone":"+37477","license_categories":["B","C"],"vehicle_type":"truck","capacity_kg":"3000","refrigerated":true}');
+do $$ begin assert (select capacity_kg from driver_profiles where user_id = '00000000-0000-0000-0000-000000000030') = 3000, 'պրոֆիլը պետք է ստեղծվեր'; end $$;
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000007');   -- Աթենքի ղեկավար
+select invite_employee('Նոր վարորդ', 'driver') as code \gset
+select pg_temp.as_user('00000000-0000-0000-0000-000000000030');
+select accept_invite(:'code');
+do $$ begin
+  assert (select name from employees where user_id = '00000000-0000-0000-0000-000000000030') = 'Վազգեն', 'վարորդը պետք է դառնար աշխատող՝ իր անունով';
+  begin perform accept_invite('000000'); raise exception 'պետք է մերժվեր';
+  exception when raise_exception then if sqlerrm = 'պետք է մերժվեր' then raise; end if; end;
+end $$;
+
 reset role;
 \echo ✅ Բազայի բոլոր ստուգումներն անցան

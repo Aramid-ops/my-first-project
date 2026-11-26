@@ -2,6 +2,7 @@ import { Redirect, router } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { deliveryLabel } from '@/lib/rules';
+import { InviteButton } from '@/components/invite-button';
 import { useStore } from '@/lib/store';
 import { colors } from '@/lib/theme';
 import { Button, Logo, Screen, styles, Title } from '@/lib/ui';
@@ -27,9 +28,12 @@ export default function ShopHome() {
           <Pressable accessibilityRole="button" onPress={() => router.push('/shop/profile')} hitSlop={12}>
             <Text style={styles.muted}>Իմ տվյալները</Text>
           </Pressable>
-          <Pressable accessibilityRole="button" onPress={() => { signOut(); router.replace('/'); }} hitSlop={12}>
+          <View style={{ flexDirection: 'row', gap: 16 }}>
+            <InviteButton />
+            <Pressable accessibilityRole="button" onPress={() => { signOut(); router.replace('/'); }} hitSlop={12}>
             <Text style={styles.muted}>Դուրս գալ</Text>
           </Pressable>
+          </View>
         </View>
       </View>
       <Title sub={shop.name}>Բարի օր</Title>

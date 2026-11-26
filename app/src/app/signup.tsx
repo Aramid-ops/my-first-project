@@ -5,14 +5,14 @@
 //   🚚 Աշխատող — միայն հրավերի կոդ
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ScrollView, Text } from 'react-native';
+import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
 
 import { matches } from '@/lib/search';
 import { supabase } from '@/lib/supabase';
 import { colors } from '@/lib/theme';
 import { Button, Card, Chips, Field, Screen, styles, Title } from '@/lib/ui';
 
-type Kind = 'shop' | 'manager' | 'firm' | 'employee';
+type Kind = 'shop' | 'manager' | 'firm' | 'driver' | 'employee';
 type PubFirm = { id: string; name: string; category: string | null; status: string };
 
 const districts = ['Աջափնյակ', 'Ավան', 'Արաբկիր', 'Դավթաշեն', 'Էրեբունի', 'Կենտրոն', 'Մալաթիա-Սեբաստիա', 'Նոր Նորք', 'Նորք-Մարաշ', 'Նուբարաշեն', 'Շենգավիթ', 'Քանաքեռ-Զեյթուն'];
@@ -20,7 +20,8 @@ const kinds: { value: Kind; label: string }[] = [
   { value: 'shop', label: '🏪 Խանութ / ռեստորան' },
   { value: 'manager', label: '👔 Մատակարար (մենեջեր)' },
   { value: 'firm', label: '🏢 Ֆիրմա' },
-  { value: 'employee', label: '🚚 Աշխատող (կոդով)' },
+  { value: 'driver', label: '🚗 Վարորդ' },
+  { value: 'employee', label: '🔑 Ֆիրմայի աշխատող (կոդով)' },
 ];
 
 const emailOk = (e: string) => /^\S+@\S+\.\S+$/.test(e);
@@ -32,7 +33,10 @@ export default function SignUp() {
     name: '', phone: '', email: '', password: '',
     shop_name: '', legal_name: '', tax_id: '', district: '', address: '', contact_person: '',
     firm_id: '', firm_name: '', category: '', code: '',
+    vehicle_type: '', vehicle_model: '', plate: '', capacity_kg: '',
   });
+  const [licenses, setLicenses] = useState<string[]>([]);
+  const [fridge, setFridge] = useState(false);
   const [firms, setFirms] = useState<PubFirm[]>([]);
   const [firmQuery, setFirmQuery] = useState('');
   const [busy, setBusy] = useState(false);
@@ -48,6 +52,7 @@ export default function SignUp() {
     kind === 'employee' ? (f.code.length !== 6 ? 'Գրեք 6-նիշ կոդը' : !emailOk(f.email) ? 'Լրացրեք էլ. փոստը' : f.password.length < 8 ? 'Գաղտնաբառը՝ առնվազն 8 նիշ' : null)
     : kind === 'shop' ? (!f.shop_name || !f.legal_name ? 'Լրացրեք անվանումները' : !/^\d{8}$/.test(f.tax_id) ? 'ՀՎՀՀ-ն պետք է լինի 8 թիվ' : !f.district || !f.address ? 'Լրացրեք հասցեն' : common)
     : kind === 'manager' ? (!f.firm_id && !f.firm_name.trim() ? 'Ընտրեք կամ գրեք ֆիրման' : common)
+    : kind === 'driver' ? (licenses.length === 0 ? 'Նշեք վարորդական իրավունքի կարգը' : !f.vehicle_type ? 'Ընտրեք մեքենայի տեսակը' : common)
     : !f.firm_name.trim() ? 'Լրացրեք ֆիրմայի անունը' : f.tax_id && !/^\d{8}$/.test(f.tax_id) ? 'ՀՎՀՀ-ն պետք է լինի 8 թիվ' : common;
 
   const metadata = () => {
@@ -56,6 +61,8 @@ export default function SignUp() {
         return { kind, name: f.shop_name, legal_name: f.legal_name, tax_id: f.tax_id, city: 'Երևան', district: f.district, address: f.address, phone: f.phone, email: f.email, contact_person: f.contact_person || f.name };
       case 'manager':
         return { kind, name: f.name, phone: f.phone, firm_id: f.firm_id || null, firm_name: f.firm_name, category: f.category };
+      case 'driver':
+        return { kind, name: f.name, phone: f.phone, address: f.address, license_categories: licenses, vehicle_type: f.vehicle_type, vehicle_model: f.vehicle_model, plate: f.plate, capacity_kg: f.capacity_kg, refrigerated: fridge };
       case 'firm':
         return { kind, name: f.name, phone: f.phone, firm_id: f.firm_id || null, firm_name: f.firm_name, legal_name: f.legal_name, tax_id: f.tax_id, address: f.address, category: f.category };
       default:
@@ -95,6 +102,42 @@ export default function SignUp() {
               <Field label="Հասցե" value={f.address} onChangeText={set('address')} />
             </Card>
           </>
+        ) : null}
+
+        {kind === 'driver' ? (
+          <Card style={{ gap: 12 }}>
+            <Text style={styles.muted}>Վարորդական իրավունքի կարգ (կարելի է մի քանիսը)</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {['B', 'C1', 'C', 'CE', 'D'].map((c) => {
+                const on = licenses.includes(c);
+                return (
+                  <Pressable
+                    key={c}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: on }}
+                    onPress={() => setLicenses(on ? licenses.filter((x) => x !== c) : [...licenses, c])}
+                    style={{ minWidth: 52, minHeight: 40, borderRadius: 999, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, borderWidth: 1, borderColor: on ? colors.dark : colors.borderStrong, backgroundColor: on ? colors.dark : colors.card }}>
+                    <Text style={{ color: on ? '#FFFFFF' : colors.text, fontWeight: '600' }}>{c}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Text style={styles.muted}>Մեքենա</Text>
+            <Chips options={[{ value: 'car', label: 'Մարդատար' }, { value: 'van', label: 'Ֆուրգոն' }, { value: 'truck', label: 'Բեռնատար' }]} value={f.vehicle_type} onChange={set('vehicle_type')} />
+            <Field label="Մակնիշ, մոդել (օր.՝ GAZelle Next)" value={f.vehicle_model} onChangeText={set('vehicle_model')} />
+            <Field label="Համարանիշ" value={f.plate} onChangeText={set('plate')} />
+            <Text style={styles.muted}>Բեռնատարողություն</Text>
+            <Chips
+              options={[['500', '0.5 տ'], ['1000', '1 տ'], ['1500', '1.5 տ'], ['3000', '3 տ'], ['5000', '5 տ'], ['10000', '10 տ'], ['20000', '20 տ']].map(([v, l]) => ({ value: v, label: l }))}
+              value={f.capacity_kg}
+              onChange={set('capacity_kg')}
+            />
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={styles.body}>Սառնարանային</Text>
+              <Switch value={fridge} onValueChange={setFridge} />
+            </View>
+            <Field label="Հասցե" value={f.address} onChangeText={set('address')} />
+          </Card>
         ) : null}
 
         {kind === 'manager' || kind === 'firm' ? (

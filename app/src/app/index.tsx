@@ -30,6 +30,7 @@ export default function SignIn() {
     );
   }
   if (session?.kind === 'shop') return <Redirect href="/shop" />;
+  if (session?.kind === 'driverSelf') return <Redirect href="/me" />;
   if (session?.kind === 'employee')
     return <Redirect href={session.role === 'driver' ? '/driver' : session.role === 'admin' ? '/admin' : '/manager'} />;
 
