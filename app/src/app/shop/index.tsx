@@ -70,6 +70,9 @@ export default function ShopHome() {
             </Pressable>
           );
         })}
+        <Pressable accessibilityRole="button" onPress={() => router.push('/shop/external')} style={{ paddingVertical: 10 }}>
+          <Text style={{ color: colors.primary, fontWeight: '600', textAlign: 'center' }}>Այլ մատակարարներ (WhatsApp / Viber / SMS)</Text>
+        </Pressable>
       </ScrollView>
 
       <View style={{ flexDirection: 'row', gap: 10, paddingBottom: 20 }}>
