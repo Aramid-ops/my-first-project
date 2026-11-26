@@ -1,9 +1,10 @@
 // Մուտք էլ. փոստով և գաղտնաբառով (Supabase Auth)
 import { Link, Redirect } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 
 import { useStore } from '@/lib/store';
+import { supabase } from '@/lib/supabase';
 import { colors } from '@/lib/theme';
 import { Button, Card, Field, Screen, styles } from '@/lib/ui';
 
@@ -13,6 +14,11 @@ export default function SignIn() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [claimPending, setClaimPending] = useState(false);
+  useEffect(() => {
+    if (session?.kind !== 'none') return;
+    supabase.from('firm_claims').select('status').eq('status', 'pending').then(({ data }) => setClaimPending(!!data?.length));
+  }, [session]);
 
   if (!ready) {
     return (
@@ -37,7 +43,11 @@ export default function SignIn() {
 
         {session?.kind === 'none' ? (
           <Card style={{ gap: 12 }}>
-            <Text style={styles.body}>{userEmail} հաշիվը դեռ կցված չէ որևէ խանութի կամ ֆիրմայի։</Text>
+            <Text style={styles.body}>
+              {claimPending
+                ? 'Ձեր ֆիրմայի հայտը ստուգվում է. հաստատելուց հետո կտեսնեք ֆիրմայի էջը (սովորաբար՝ նույն օրը)։'
+                : `${userEmail} հաշիվը դեռ կցված չէ որևէ խանութի կամ ֆիրմայի։`}
+            </Text>
             <Button label="Թարմացնել" onPress={reload} />
             <Button kind="outline" label="Դուրս գալ" onPress={signOut} />
           </Card>

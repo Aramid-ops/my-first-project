@@ -78,9 +78,23 @@ insert into products (firm_id, name, unit, price) select firm_id, 'Մածուն'
 do $$ begin assert (select sku from products where name = 'Մածուն') ~ '^[A-Z]{2}0001$', 'նոր ֆիրմայի ապրանքը պետք է ստանար արտիկուլ'; end $$;
 reset role;
 insert into auth.users values ('00000000-0000-0000-0000-000000000022','owner@x.am',
-  json_build_object('kind','firm','firm_name','Նոր Կաթ ՍՊԸ','tax_id','11112222','firm_id',(select firm_id from employees where name = 'Կարո'))::jsonb);
+  json_build_object('kind','firm','name','Տեր','firm_name','Նոր Կաթ ՍՊԸ','tax_id','11112222','firm_id',(select firm_id from employees where name = 'Կարո'))::jsonb);
 do $$ begin
-  assert (select status from firms f join employees e on e.firm_id = f.id where e.name = 'Կարո') = 'active', 'ֆիրման պետք է ակտիվանար';
+  assert (select status from firms f join employees e on e.firm_id = f.id where e.name = 'Կարո') = 'unclaimed', 'մինչև հաստատումը ֆիրման պետք է մնար unclaimed';
+  assert not exists (select 1 from employees where user_id = '00000000-0000-0000-0000-000000000022'), 'մինչև հաստատումը ղեկավար չպետք է լիներ';
+end $$;
+-- ուրիշը չի կարող հաստատել
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000022');
+do $$ begin
+  begin perform decide_firm_claim((select id from firm_claims limit 1), true); raise exception 'պետք է մերժվեր';
+  exception when raise_exception then if sqlerrm = 'պետք է մերժվեր' then raise; end if; end;
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);  -- «սերվեր» (մենք)
+select decide_firm_claim((select id from firm_claims limit 1), true);
+do $$ begin
+  assert (select status from firms f join employees e on e.firm_id = f.id where e.name = 'Կարո') = 'active', 'հաստատելուց հետո ֆիրման պետք է ակտիվանար';
   assert (select count(*) from employees e join firms f on f.id = e.firm_id where f.tax_id = '11112222') = 2, 'մենեջերը պետք է մնար ֆիրմայում';
 end $$;
 
