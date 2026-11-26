@@ -9,6 +9,9 @@ export interface Firm {
   logoUrl?: string;
   color: { bg: string; fg: string };
   category: string;
+  /** Ֆիրմայի բազա (պահեստ)՝ կանգառները մոտիկից հեռու շարելու համար */
+  baseLat?: number;
+  baseLng?: number;
 }
 
 export type EmployeeRole = 'admin' | 'manager' | 'staff' | 'driver';

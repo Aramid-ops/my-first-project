@@ -63,7 +63,15 @@ function colorFor(id: string) {
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-const mapFirm = (r: any): Firm => ({ id: r.id, name: r.name, category: r.category ?? '', logoUrl: r.logo_url ?? undefined, color: colorFor(r.id) });
+const mapFirm = (r: any): Firm => ({
+  id: r.id,
+  name: r.name,
+  category: r.category ?? '',
+  logoUrl: r.logo_url ?? undefined,
+  color: colorFor(r.id),
+  baseLat: r.base_lat ?? undefined,
+  baseLng: r.base_lng ?? undefined,
+});
 const mapEmployee = (r: any): Employee => ({
   id: r.id,
   firmId: r.firm_id,

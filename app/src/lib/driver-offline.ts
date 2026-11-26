@@ -19,6 +19,14 @@ export type DriverAction =
       lng?: number;
     }
   | {
+      kind: 'checkin';
+      id: string;
+      driverId: string;
+      firmId: string;
+      day: string; // YYYY-MM-DD
+      at: string;
+    }
+  | {
       kind: 'finish';
       id: string;
       driverId: string;
@@ -52,7 +60,7 @@ const eventText: Record<StatusAction['status'], string> = {
 export function applyOutbox(orders: Order[], outbox: DriverAction[], driverName = ''): Order[] {
   if (outbox.length === 0) return orders;
   const byOrder = new Map<string, StatusAction[]>();
-  for (const a of outbox) if (a.kind !== 'finish') byOrder.set(a.orderId, [...(byOrder.get(a.orderId) ?? []), a]);
+  for (const a of outbox) if (a.kind !== 'finish' && a.kind !== 'checkin') byOrder.set(a.orderId, [...(byOrder.get(a.orderId) ?? []), a]);
   return orders.map((o) => {
     const acts = byOrder.get(o.id);
     if (!acts) return o;
@@ -73,7 +81,10 @@ export async function syncOutbox(uid: string): Promise<DriverAction[]> {
   let list = await loadOutbox(uid);
   while (list.length > 0) {
     const a = list[0];
-    if (a.kind === 'finish') {
+    if (a.kind === 'checkin') {
+      const r = await supabase.from('driver_checkins').upsert({ driver_id: a.driverId, firm_id: a.firmId, day: a.day, checked_in_at: a.at }, { ignoreDuplicates: true });
+      if (r.error) break;
+    } else if (a.kind === 'finish') {
       const r = await supabase.from('driver_days').upsert({
         driver_id: a.driverId,
         firm_id: a.firmId,
