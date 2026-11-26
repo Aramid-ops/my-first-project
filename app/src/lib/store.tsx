@@ -160,13 +160,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [auth, reload]);
 
   const value = useMemo<Store>(() => {
-    const actorName = () => {
-      if (session?.kind === 'employee') return employees.find((x) => x.id === session.employeeId)?.name ?? '';
-      if (session?.kind === 'shop') return shops.find((x) => x.id === session.shopId)?.name ?? '';
-      return auth?.user.email ?? '';
-    };
-    const addEvent = (orderId: string, text: string) =>
-      supabase.from('order_events').insert({ order_id: orderId, actor_user: auth?.user.id, actor_name: actorName(), text });
+    // Անունը և ժամը լրացնում է բազան (order_events_fill)
+    const addEvent = (orderId: string, text: string) => supabase.from('order_events').insert({ order_id: orderId, actor_name: '', text });
 
     return {
       ready,
@@ -203,25 +198,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           const p = products.find((x) => x.id === pid);
           if (p) byFirm.set(p.firmId, [...(byFirm.get(p.firmId) ?? []), { p, qty }]);
         }
+        // Ամեն մատակարարի համար՝ մեկ ատոմային գործողություն (place_order).
+        // Գինը, քանակի կանոնները և մենեջերը ստուգում/լրացնում է բազան։
         for (const [firmId, items] of byFirm) {
           const link = links.find((l) => l.shopId === session.shopId && l.firmId === firmId);
           if (!link) continue;
-          const { data: order, error } = await supabase
-            .from('orders')
-            .insert({
-              shop_id: session.shopId,
-              firm_id: firmId,
-              manager_id: link.managerId,
-              assignee_id: link.managerId,
-              status: 'sent',
-              delivery_date: toISODate(nextDeliveryDate(link.deliveryDays)),
-            })
-            .select('id')
-            .single();
-          if (error || !order) return error?.message ?? 'Չհաջողվեց ուղարկել';
-          const r = await supabase.from('order_items').insert(items.map(({ p, qty }) => ({ order_id: order.id, product_id: p.id, qty, price: p.price })));
-          if (r.error) return r.error.message;
-          await addEvent(order.id, 'Ուղարկեց պատվերը');
+          const { error } = await supabase.rpc('place_order', {
+            p_shop: session.shopId,
+            p_firm: firmId,
+            p_delivery: toISODate(nextDeliveryDate(link.deliveryDays)),
+            p_items: items.map(({ p, qty }) => ({ product_id: p.id, qty })),
+          });
+          if (error) {
+            await reload();
+            return error.message;
+          }
+          // Հաջողված մասը հանում ենք զամբյուղից, որ կրկնակի չուղարկվի
+          setCart((c) => {
+            const next = { ...c };
+            for (const { p } of items) delete next[p.id];
+            return next;
+          });
         }
         setCart({});
         await reload();
