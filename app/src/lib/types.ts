@@ -71,6 +71,8 @@ export interface DriverProfile {
   plate?: string;
   capacityKg?: number;
   refrigerated: boolean;
+  verificationStatus: 'none' | 'pending' | 'approved' | 'rejected';
+  verificationNote?: string;
 }
 
 export interface SavedList {

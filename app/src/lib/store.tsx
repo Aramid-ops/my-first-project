@@ -227,6 +227,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             plate: dp.data.plate ?? undefined,
             capacityKg: dp.data.capacity_kg == null ? undefined : Number(dp.data.capacity_kg),
             refrigerated: !!dp.data.refrigerated,
+            verificationStatus: dp.data.verification_status ?? 'none',
+            verificationNote: dp.data.verification_note ?? undefined,
           }
         : null,
     );

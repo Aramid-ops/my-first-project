@@ -11,6 +11,7 @@ import { currentPoint } from '@/lib/geo';
 import { orderByNearest } from '@/lib/route';
 import { formatQty, formatTime, toISODate } from '@/lib/rules';
 import { ChatButton } from '@/components/chat-button';
+import { VerificationBanner } from '@/components/verification-banner';
 import { InviteButton } from '@/components/invite-button';
 import { useStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
@@ -145,6 +146,7 @@ export default function DriverStops() {
         </Text>
       </View>
 
+      <VerificationBanner />
       {!checkedIn ? (
         <View style={[styles.card, { gap: 10, marginBottom: 10, borderColor: '#2E9E5B' }]}>
           <Text style={styles.strong}>Բարի լույս, {me.name} 👋</Text>

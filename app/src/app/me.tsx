@@ -6,6 +6,7 @@ import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import { supabase } from '@/lib/supabase';
 
 import { ChatButton } from '@/components/chat-button';
+import { VerificationBanner } from '@/components/verification-banner';
 import { InviteButton } from '@/components/invite-button';
 import { useStore } from '@/lib/store';
 import { colors } from '@/lib/theme';
@@ -52,7 +53,8 @@ export default function Me() {
           </Pressable>
         </View>
       </View>
-      <Title sub="Վարորդ">{d.name}</Title>
+      <Title sub={d.verificationStatus === 'approved' ? 'Վարորդ · ✅ նույնականացված' : 'Վարորդ'}>{d.name}</Title>
+      <VerificationBanner />
       <ScrollView contentContainerStyle={{ gap: 12, paddingBottom: 24 }}>
         <Card style={{ gap: 10 }}>
           {rows.map(([k, v]) =>

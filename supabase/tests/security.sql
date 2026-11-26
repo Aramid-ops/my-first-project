@@ -135,7 +135,20 @@ select set_config('request.jwt.claim.sub', '', false);
 insert into auth.users values ('00000000-0000-0000-0000-000000000031','free@x.am','{"kind":"driver","name":"Արսեն","license_categories":["C"],"vehicle_type":"truck"}');
 set role authenticated;
 select pg_temp.as_user('00000000-0000-0000-0000-000000000007');   -- Աթենքի ղեկավար
-do $$ begin assert exists (select 1 from available_drivers() where name = 'Արսեն'), 'ազատ վարորդը պետք է երևար'; end $$;
+do $$ begin assert not exists (select 1 from available_drivers() where name = 'Արսեն'), 'չնույնականացված վարորդը չպետք է երևար'; end $$;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000031');
+do $$ begin
+  begin update driver_profiles set verification_status = 'approved'; raise exception 'պետք է մերժվեր';
+  exception when insufficient_privilege then null; end;   -- ինքն իրեն հաստատել չի կարող
+end $$;
+select submit_driver_verification('00000000-0000-0000-0000-000000000031/a.jpg', '00000000-0000-0000-0000-000000000031/b.jpg', '00000000-0000-0000-0000-000000000031/c.jpg');
+do $$ begin assert (select verification_status from driver_profiles where user_id = auth.uid()) = 'pending', 'պետք է լիներ pending'; end $$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select decide_driver_verification('00000000-0000-0000-0000-000000000031', true);
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000007');
+do $$ begin assert exists (select 1 from available_drivers() where name = 'Արսեն'), 'նույնականացված վարորդը պետք է երևար'; end $$;
 select invite_user('00000000-0000-0000-0000-000000000031', 'driver');
 select pg_temp.as_user('00000000-0000-0000-0000-000000000031');
 select answer_job_invite((select id from job_invites where status = 'pending' limit 1), true);

@@ -1,5 +1,5 @@
 // Մուտք էլ. փոստով և գաղտնաբառով (Supabase Auth)
-import { Link, Redirect } from 'expo-router';
+import { Link, Redirect, router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 
@@ -18,6 +18,8 @@ export default function SignIn() {
   useEffect(() => {
     if (session?.kind !== 'none') return;
     supabase.from('firm_claims').select('status').eq('status', 'pending').then(({ data }) => setClaimPending(!!data?.length));
+    // հարթակի ադմին → ստուգումների էջ
+    supabase.from('platform_admins').select('user_id').maybeSingle().then(({ data }) => { if (data) router.replace('/platform'); });
   }, [session]);
 
   if (!ready) {

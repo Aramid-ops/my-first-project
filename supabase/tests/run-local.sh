@@ -24,8 +24,8 @@ import sys,re
 s=open(sys.argv[1],encoding='utf-8').read()
 s=s.replace('create extension if not exists pg_net;','')
 s=re.sub(r"insert into storage\.buckets[^;]*;", "", s)
-s=re.sub(r"drop policy if exists media_\w+ on storage\.objects;", "", s)
-s=re.sub(r"create policy media_\w+ on storage\.objects[\s\S]*?\);\n", "", s)
+s=re.sub(r"drop policy if exists (media|kyc)_\w+ on storage\.objects;", "", s)
+s=re.sub(r"create policy (media|kyc)_\w+ on storage\.objects[\s\S]*?\);\n", "", s)
 print(s)
 PY
 done
