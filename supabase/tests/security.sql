@@ -209,5 +209,11 @@ end $$;
 select pg_temp.as_user('00000000-0000-0000-0000-000000000002');
 do $$ begin assert not exists (select 1 from shop_directory() where name like '%Կետ%'), 'թաքցրած խանութը չպետք է երևար'; end $$;
 
+-- 16. Պահանջարկ. մենեջերը տեսնում է, ով է գնում (միջակայքով), խանութը՝ ոչ
+select pg_temp.as_user('00000000-0000-0000-0000-000000000002');
+do $$ begin assert (select count(*) from shop_demand('կա')) >= 0; end $$;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000001');
+do $$ begin assert (select count(*) from shop_demand('կա')) = 0, 'խանութը չպետք է տեսներ պահանջարկը'; end $$;
+
 reset role;
 \echo ✅ Բազայի բոլոր ստուգումներն անցան

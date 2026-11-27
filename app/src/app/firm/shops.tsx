@@ -11,6 +11,8 @@ import { colors, radius } from '@/lib/theme';
 import { Chips, Pill, Screen, styles, Title } from '@/lib/ui';
 
 type Row = { id: string; name: string; district: string | null; address: string | null; phone: string | null; contact_person: string | null; distance_km: number | null; is_client: boolean };
+/** «Ով է գնում»՝ ծավալը միայն միջակայքով, առանց մատակարարի և գնի */
+type Demand = Row & { qty_band: string; unit: string; last_band: string };
 
 export default function AllShops() {
   const { session } = useStore();
@@ -19,14 +21,23 @@ export default function AllShops() {
   const [district, setDistrict] = useState('all');
   const [sort, setSort] = useState<'name' | 'near'>('name');
   const [showDistricts, setShowDistricts] = useState(false);
+  const [product, setProduct] = useState('');
+  const [demand, setDemand] = useState<Demand[] | null>(null);
   useEffect(() => {
     supabase.rpc('shop_directory').then(({ data }) => setRows((data ?? []) as Row[]));
   }, []);
+  // «Ով է գնում ձու». փոքր դադարով
+  useEffect(() => {
+    const t = product.trim();
+    if (t.length < 2) return setDemand(null);
+    const timer = setTimeout(() => supabase.rpc('shop_demand', { q: t }).then(({ data }) => setDemand((data ?? []) as Demand[])), 300);
+    return () => clearTimeout(timer);
+  }, [product]);
   if (session?.kind !== 'employee') return <Redirect href="/" />;
 
-  const list = (rows ?? [])
+  const list = ((demand ?? rows ?? []) as (Row & Partial<Demand>)[])
     .filter((r) => (district === 'all' || r.district === district) && matches(`${r.name} ${r.address ?? ''} ${r.contact_person ?? ''}`, q))
-    .sort((a, b) => (sort === 'near' ? (a.distance_km ?? 1e9) - (b.distance_km ?? 1e9) : a.name.localeCompare(b.name, 'hy')));
+    .sort((a, b) => (sort === 'near' ? (a.distance_km ?? 1e9) - (b.distance_km ?? 1e9) : demand ? 0 : a.name.localeCompare(b.name, 'hy')));
 
   return (
     <Screen>
@@ -36,6 +47,20 @@ export default function AllShops() {
         </Pressable>
         <Title sub={rows ? `${rows.length} խանութ, ռեստորան, սրճարան` : undefined}>Բոլոր խանութները</Title>
       </View>
+      <TextInput
+        importantForAutofill="no"
+        value={product}
+        onChangeText={setProduct}
+        placeholder="🔎 Ով է գնում… (օր.՝ ձու, միս, ձեթ)"
+        accessibilityLabel="Ով է գնում ապրանքը"
+        autoCorrect={false}
+        style={{ minHeight: 46, borderWidth: 1, borderColor: colors.dark, borderRadius: radius.md, paddingHorizontal: 14, fontSize: 15, backgroundColor: colors.card, color: colors.text, marginBottom: 8 }}
+      />
+      {demand ? (
+        <Text style={[styles.muted, { marginBottom: 8 }]}>
+          {demand.length} կետ գնում է «{product.trim()}» (վերջին 3 ամիս, հավելվածի պատվերներով)։ Ծավալը՝ մոտավոր, ամսական։
+        </Text>
+      ) : null}
       <TextInput
         importantForAutofill="no"
         value={q}
@@ -73,6 +98,11 @@ export default function AllShops() {
               {[r.district, r.address].filter(Boolean).join(', ')}
               {r.distance_km != null ? ` · 📍 ${r.distance_km} կմ` : ''}
             </Text>
+            {r.qty_band ? (
+              <Text style={{ color: colors.dark, fontWeight: '600' }}>
+                Գնում է ≈ {r.qty_band} {r.unit}/ամիս · վերջինը՝ {r.last_band}
+              </Text>
+            ) : null}
             {r.contact_person ? <Text style={styles.body}>{r.contact_person}</Text> : null}
             {r.phone ? (
               <Pressable accessibilityRole="button" onPress={() => Linking.openURL(`tel:${r.phone}`)} hitSlop={8}>

@@ -39,7 +39,8 @@ type Hit = {
 };
 
 export default function Search() {
-  const { session, firms, links, shops } = useStore();
+  const { session, firms, links, shops, requestJoin } = useStore();
+  const [joinMsg, setJoinMsg] = useState<string | null>(null);
   const [q, setQ] = useState('');
   const [sort, setSort] = useState<Sort>('best');
   const [hits, setHits] = useState<Hit[]>([]);
@@ -69,6 +70,9 @@ export default function Search() {
   const shop = shops.find((s) => s.id === session.shopId);
   const linkFor = (firmId: string) => links.find((l) => l.shopId === session.shopId && l.firmId === firmId);
   const firmHits = q.trim() ? firms.filter((f) => startsWithWord(`${f.name} ${f.category}`, q)) : [];
+  // Շուկայի գները՝ նույն միավորի առկա ապրանքների համար (առաջին արդյունքի միավորով)
+  const same = hits.filter((h) => h.in_stock && h.unit === hits[0]?.unit).map((h) => Number(h.price));
+  const market = same.length >= 2 ? { min: Math.min(...same), max: Math.max(...same), avg: Math.round(same.reduce((a, b) => a + b, 0) / same.length) } : null;
   const open = (firmId: string) => router.push(linkFor(firmId)?.status === 'active' ? `/shop/supplier/${firmId}` : `/shop/firm/${firmId}`);
 
   return (
@@ -119,6 +123,13 @@ export default function Search() {
         })}
 
         {hits.length > 0 ? <Text style={[styles.strong, { fontSize: 14, color: colors.textMuted, marginTop: 6 }]}>Ապրանքներ · {hits.length}</Text> : null}
+        {market ? (
+          <View style={[styles.card, { backgroundColor: colors.primarySoft, borderColor: colors.primarySoft, gap: 2 }]}>
+            <Text style={styles.strong}>Շուկայի գինը՝ {formatAmd(market.min)} – {formatAmd(market.max)} / {hits[0].unit}</Text>
+            <Text style={styles.body}>Միջինը՝ {formatAmd(market.avg)}</Text>
+          </View>
+        ) : null}
+        {joinMsg ? <Text style={{ color: colors.warnText }}>{joinMsg}</Text> : null}
         {hits.map((h) => (
           <Pressable key={h.product_id} accessibilityRole="button" onPress={() => open(h.firm_id)} style={[styles.card, { gap: 4, opacity: h.in_stock ? 1 : 0.55 }]}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
@@ -136,16 +147,28 @@ export default function Search() {
               {h.manager_name ? ` · մենեջեր՝ ${h.manager_name}` : ''}
             </Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-              {h.link_status === 'active' ? <Pill text="Իմ մատակարարը · իմ գինը" /> : h.link_status === 'pending' ? <Pill text="Հայտը ուղարկված է" tone="info" /> : null}
+              {linkFor(h.firm_id)?.status === 'active' ? <Pill text="Իմ մատակարարը · իմ գինը" /> : linkFor(h.firm_id)?.status === 'pending' ? <Pill text="Հայտը ուղարկված է" tone="info" /> : null}
               {h.serves_district && shop?.district ? <Pill text={`Աշխատում է ${shop.district}-ում`} tone="info" /> : null}
               {h.distance_km != null ? <Text style={styles.muted}>📍 {h.distance_km} կմ</Text> : null}
               {Number(h.sold) > 0 ? <Text style={styles.muted}>🔥 {Number(h.sold)} վաճառված</Text> : null}
-              {h.link_status !== 'active' && h.manager_phone ? (
+              {market && h.in_stock && h.unit === hits[0].unit && Number(h.price) < market.avg ? <Pill text={`Միջինից ${Math.round((1 - Number(h.price) / market.avg) * 100)}% էժան`} /> : null}
+              {linkFor(h.firm_id)?.status !== 'active' && h.manager_phone ? (
                 <Pressable accessibilityRole="button" onPress={() => Linking.openURL(`tel:${h.manager_phone}`)} hitSlop={8}>
                   <Text style={{ color: colors.primary, fontWeight: '600' }}>📞 Զանգել</Text>
                 </Pressable>
               ) : null}
             </View>
+            {!linkFor(h.firm_id) ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6, paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.border }}>
+                <Text style={[styles.muted, { flex: 1 }]}>Ուղարկեք հայտ. գուցե ձեզ համար գինը ավելի մատչելի լինի</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={async () => setJoinMsg(await requestJoin(h.firm_id))}
+                  style={{ paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999, backgroundColor: colors.primary }}>
+                  <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Ուղարկել հայտ</Text>
+                </Pressable>
+              </View>
+            ) : null}
           </Pressable>
         ))}
 
