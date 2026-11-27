@@ -11,7 +11,7 @@ import { colors } from '@/lib/theme';
 import { Button, Card, Chips, Field, Screen, styles, Title } from '@/lib/ui';
 
 export default function ShopProfile() {
-  const { session, shops, updateShop } = useStore();
+  const { session, shops, updateShop, signOut } = useStore();
   const shop = session?.kind === 'shop' ? shops.find((s) => s.id === session.shopId) : undefined;
   const [f, setF] = useState({
     name: shop?.name ?? '',
@@ -89,6 +89,7 @@ export default function ShopProfile() {
             setMsg(err ? { ok: false, text: err } : { ok: true, text: 'Պահված է ✓' });
           }}
         />
+        <Button kind="outline" label="Դուրս գալ" onPress={() => { signOut(); router.replace('/'); }} />
       </ScrollView>
     </Screen>
   );

@@ -13,7 +13,7 @@ import { colors, radius } from '@/lib/theme';
 import { Button, Logo, Screen, styles, Title } from '@/lib/ui';
 
 export default function ShopHome() {
-  const { session, shops, links, firms, employees, cart, orders, signOut, deliveryDate, savedLists, applyList } = useStore();
+  const { session, shops, links, firms, employees, cart, orders, deliveryDate, savedLists, applyList } = useStore();
   // Հավելվածից դուրս մատակարարները (WhatsApp / Viber / SMS) նույնպես «Իմ մատակարարները»-ում են
   const [need, setNeed] = useState('');
   const [ext, setExt] = useState<{ id: string; name: string; category: string | null; channel: string }[]>([]);
@@ -31,24 +31,29 @@ export default function ShopHome() {
   const today = new Date().toISOString().slice(0, 10);
   const featured = firms.filter((f) => f.featuredUntil && f.featuredUntil >= today);
   const cartCount = Object.keys(cart).length;
+  const sendNeed = async () => {
+    const t = need.trim();
+    if (t.length < 2) return;
+    const { error } = await supabase.from('supply_requests').insert({ shop_id: shop.id, text: t });
+    if (!error) {
+      setNeed('');
+      router.push('/market');
+    }
+  };
   const myOrders = orders.filter((o) => o.shopId === shop.id).length;
 
   return (
     <Screen>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <Text style={{ fontSize: 15, fontWeight: '700', color: colors.dark }}>Մատակարար</Text>
-        <View style={{ flexDirection: 'row', gap: 16 }}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Իմ տվյալները" onPress={() => router.push('/shop/profile')} hitSlop={12}>
-            <Text style={{ fontSize: 18 }}>👤</Text>
-          </Pressable>
-          <View style={{ flexDirection: 'row', gap: 16 }}>
-            <PlatformLink />
+        {/* «Դուրս գալ»-ը՝ 👤 «Իմ տվյալները» էջում (նեղ էկրանին տեղ խնայելու համար) */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18 }}>
+          <PlatformLink />
           <ChatButton />
           <InviteButton />
-            <Pressable accessibilityRole="button" onPress={() => { signOut(); router.replace('/'); }} hitSlop={12}>
-            <Text style={styles.muted}>Դուրս գալ</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel="Իմ տվյալները" onPress={() => router.push('/shop/profile')} hitSlop={12}>
+            <Text style={{ fontSize: 20 }}>👤</Text>
           </Pressable>
-          </View>
         </View>
       </View>
       <Title sub={shop.name}>Բարի օր</Title>
@@ -60,24 +65,29 @@ export default function ShopHome() {
         <Text style={{ fontSize: 16 }}>🔍</Text>
         <Text style={styles.muted}>Ապրանք, մատակարար կամ արտիկուլ</Text>
       </Pressable>
-      <TextInput
-        importantForAutofill="no"
-        accessibilityLabel="Ինչ է ձեզ պետք"
-        placeholder="📣 Ի՞նչ է ձեզ պետք (օր.՝ ձու)"
-        value={need}
-        onChangeText={setNeed}
-        returnKeyType="send"
-        onSubmitEditing={async () => {
-          const t = need.trim();
-          if (t.length < 2) return;
-          const { error } = await supabase.from('supply_requests').insert({ shop_id: shop.id, text: t });
-          if (!error) {
-            setNeed('');
-            router.push('/market');
-          }
-        }}
-        style={{ minHeight: 52, borderWidth: 2, borderColor: colors.dark, borderRadius: radius.lg, paddingHorizontal: 16, fontSize: 16, backgroundColor: colors.card, color: colors.text, marginBottom: 12 }}
-      />
+      {/* Գրում է ինչ է պետք → ➤ / Enter → հարցումը գնում է Live շուկա, մատակարարները առաջարկ են ուղարկում */}
+      <Text style={[styles.strong, { marginBottom: 6 }]} maxFontSizeMultiplier={1.3}>📣 Ի՞նչ է ձեզ պետք</Text>
+      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 4 }}>
+        <TextInput
+          importantForAutofill="no"
+          accessibilityLabel="Ինչ է ձեզ պետք"
+          placeholder="Օր.՝ ձու, 300 հատ"
+          maxFontSizeMultiplier={1.3}
+          value={need}
+          onChangeText={setNeed}
+          returnKeyType="send"
+          onSubmitEditing={sendNeed}
+          style={{ flex: 1, minWidth: 0, minHeight: 52, borderWidth: 2, borderColor: colors.dark, borderRadius: radius.lg, paddingHorizontal: 16, fontSize: 16, backgroundColor: colors.card, color: colors.text }}
+        />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Ուղարկել"
+          onPress={sendNeed}
+          style={{ width: 52, borderRadius: radius.lg, backgroundColor: need.trim() ? colors.dark : colors.borderStrong, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: '#FFFFFF', fontSize: 20 }}>➤</Text>
+        </Pressable>
+      </View>
+      <Text style={[styles.muted, { marginBottom: 12 }]} maxFontSizeMultiplier={1.3}>Գրեք և ուղարկեք. մատակարարները կտեսնեն և առաջարկ կանեն</Text>
 
       <ScrollView contentContainerStyle={{ gap: 10, paddingBottom: 24 }}>
         {featured.length ? <Text style={[styles.strong, { fontSize: 14, color: colors.textMuted }]}>Առաջարկվող մատակարարներ</Text> : null}

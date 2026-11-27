@@ -2,7 +2,7 @@
 import * as Clipboard from 'expo-clipboard';
 import { Image } from 'expo-image';
 import { useState, type ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View, type TextInputProps, type ViewStyle } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, radius, touch } from './theme';
@@ -65,7 +65,9 @@ export function Button({
         kind === 'outline' && { borderWidth: 1, borderColor: colors.borderStrong },
         style,
       ]}>
-      <Text style={{ color: fg, fontSize: 15, fontWeight: '700' }}>{label}</Text>
+      <Text numberOfLines={Platform.OS === 'web' ? undefined : 1} adjustsFontSizeToFit minimumFontScale={0.7} maxFontSizeMultiplier={1.3} style={{ color: fg, fontSize: 15, fontWeight: '700', paddingHorizontal: 4 }}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -102,7 +104,7 @@ export const styles = StyleSheet.create({
     borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 10,
   },
   muted: { fontSize: 13, color: colors.textMuted },
   body: { fontSize: 15, color: colors.text },
