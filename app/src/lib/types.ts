@@ -23,6 +23,10 @@ export interface Firm {
   address?: string;
   legalName?: string;
   taxId?: string;
+  /** Ակտիվացված է բանկային փոխանցմամբ */
+  verified?: boolean;
+  verificationCode?: string;
+  verificationPaidAt?: string;
 }
 
 export type EmployeeRole = 'admin' | 'manager' | 'staff' | 'driver';
@@ -39,6 +43,11 @@ export interface Employee {
   phone?: string;
   /** Մենեջերի թաղամասերը (խանութները այնտեղից գալիս են նրան) */
   districts?: string[];
+  /** Հաստատում է «գումարը ստացվել է» (նշում է ղեկավարը) */
+  canConfirmPayments?: boolean;
+  active?: boolean;
+  /** Գրանցվել է հավելվածում (ոչ միայն հրավիրված) */
+  hasAccount?: boolean;
 }
 
 export interface Shop {
@@ -109,6 +118,8 @@ export interface Line {
   driverId?: string;
   /** «HH:MM». դրանից հետո պատվերը գնում է հաջորդ գծին */
   orderCutoff?: string;
+  /** Հիշեցում վերջնաժամից քանի րոպե առաջ (չկա՝ անջատված) */
+  reminderMinutes?: number;
 }
 
 export type IssueKind = 'broken' | 'missing' | 'wrong' | 'expired';
@@ -142,7 +153,19 @@ export interface Payment {
   confirmed: boolean;
   markedAt?: string;
   note?: string;
+  method: PaymentMethod;
+  /** Չեկի նկարը (փակ պահոց «receipts») */
+  receiptPath?: string;
+  /** Ում է փոխանցել մենեջերը (հաշվապահ) */
+  forwardedTo?: string;
 }
+
+export type PaymentMethod = 'transfer' | 'cash_driver' | 'cash_manager';
+export const paymentMethodLabel: Record<PaymentMethod, string> = {
+  transfer: '💳 Փոխանցում քարտին / հաշվին',
+  cash_driver: '💵 Կանխիկ վարորդին',
+  cash_manager: '💵 Կանխիկ մենեջերին',
+};
 
 export type Unit = 'հատ' | 'կգ' | 'գ' | 'լ' | 'մլ' | 'մ' | 'տուփ' | 'բլոկ' | 'արկղ';
 export const units: Unit[] = ['հատ', 'կգ', 'գ', 'լ', 'մլ', 'մ', 'տուփ', 'բլոկ', 'արկղ'];
@@ -182,6 +205,8 @@ export interface OrderItem {
   qty: number;
   /** Կշռվող ապրանքի իրական քանակը */
   actualQty?: number;
+  /** Գինը պատվերի պահին */
+  price?: number;
 }
 
 export interface OrderEvent {

@@ -46,6 +46,10 @@ export function firmActions(c: ActionCtx): FirmActions {
     setLinkManager: (shopId, firmId, managerId) => link(shopId, firmId, { manager_id: managerId }),
     setLineDriver: (lineId, driverId) => line(lineId, { driver_id: driverId }),
     setLineCutoff: (lineId, cutoff) => line(lineId, { order_cutoff: cutoff }),
+    setLineReminder: (lineId, minutes) => line(lineId, { reminder_minutes: minutes }),
+    setEmployeePermission: (employeeId, can) => run(c, supabase.from('employees').update({ can_confirm_payments: can }).eq('id', employeeId)),
+    forwardPayment: (paymentId, to) => run(c, supabase.rpc('forward_payment', { p_payment: paymentId, p_to: to })),
+    markVerificationPaid: () => run(c, supabase.rpc('mark_verification_paid')),
     finishTextOrder: (id) => run(c, supabase.rpc('finish_text_order', { p_id: id })),
     toggleTeamMember: (teamId, employeeId) => {
       const inTeam = c.teams.find((x) => x.id === teamId)?.memberIds.includes(employeeId);

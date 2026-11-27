@@ -2,7 +2,7 @@
 // Պարզության կանոն. սա մեկ անգամ կարգավորվող էջ է, սովորական աշխատողը այն չի տեսնում։
 import { Redirect, router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Linking, Platform, Pressable, ScrollView, Switch, Text, View } from 'react-native';
 
 import { formatAmd, normalizePhone, toISODate } from '@/lib/rules';
 import { ChatButton, PlatformLink } from '@/components/chat-button';
@@ -12,15 +12,18 @@ import { supabase } from '@/lib/supabase';
 import { colors } from '@/lib/theme';
 import { currentPoint } from '@/lib/geo';
 import { pickAndUpload } from '@/lib/media';
+import { LinesEditor, LinesExplainer } from '@/components/lines-editor';
+import { ActivationCard } from '@/components/activation-card';
+import { PaymentCard } from '@/components/payment-card';
 import { Button, Card, Chips, CopyRow, Field, Logo, Screen, styles, Title } from '@/lib/ui';
 
 const dayShort = ['', 'երկ', 'երք', 'չրք', 'հնգ', 'ուրբ', 'շբթ', 'կիր'];
 
 export default function Admin() {
-  const { session, employees, firms, shops, links, lines, teams, orders, issues, debts, payments, setLineDriver, setLineCutoff, toggleTeamMember, setLinkManager, setLinkLine, confirmPayment, inviteEmployee, setLinkTerms, updateFirm, signOut } = useStore();
+  const { session, employees, firms, shops, links, lines, teams, orders, issues, debts, payments, setLineDriver, setLineCutoff, toggleTeamMember, setLinkManager, setLinkLine, inviteEmployee, setEmployeePermission, setLinkTerms, updateFirm, signOut, reload } = useStore();
   const [tab, setTab] = useState<'today' | 'lines' | 'teams' | 'shops' | 'people' | 'firm'>('today');
   const [inv, setInv] = useState<{ name: string; role: 'manager' | 'staff' | 'driver'; department: string; phone: string }>({ name: '', role: 'driver', department: '', phone: '' });
-  const [code, setCode] = useState<string | null>(null);
+  const [code, setCode] = useState<{ code: string; phone: string; name: string } | null>(null);
   const [info, setInfo] = useState<{ description: string; phone: string; address: string; min: string } | null>(null);
   const [drivers, setDrivers] = useState<{ driver_id: string; name: string; checked_in: boolean; open_orders: number }[]>([]);
   useEffect(() => {
@@ -38,6 +41,20 @@ export default function Admin() {
   const firmLinks = links.filter((l) => l.firmId === me.firmId);
   const run = async (p: Promise<string | null>) => setError(await p);
   const roleName = (r: string, d?: string) => d ?? ({ manager: 'մենեջեր', driver: 'վարորդ', staff: 'աշխատող', admin: 'ղեկավար' } as Record<string, string>)[r];
+
+  // Նոր ֆիրմա. գործիքները բաց են միայն բանկային ստուգումից հետո
+  if (firm.verified === false) {
+    return (
+      <Screen>
+        <Title sub={`${firm.name} · ղեկավար`}>Բարի գալուստ</Title>
+        <ScrollView contentContainerStyle={{ gap: 12, paddingBottom: 24 }}>
+          <ActivationCard code={firm.verificationCode} paidAt={firm.verificationPaidAt} />
+          <Button kind="outline" label="Թարմացնել" onPress={() => reload()} />
+          <Button kind="outline" label="Դուրս գալ" onPress={() => { signOut(); router.replace('/'); }} />
+        </ScrollView>
+      </Screen>
+    );
+  }
 
   return (
     <Screen>
@@ -113,15 +130,8 @@ export default function Admin() {
                   </View>
                 ))}
                 {pend.length ? <Text style={[styles.strong, { fontSize: 15, marginTop: 6 }]}>Վճարումներ՝ սպասում են հաստատման</Text> : null}
-                {pend.map((p) => (
-                  <View key={p.id} style={[styles.card, { gap: 8 }]}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                      <Text style={styles.strong}>{shops.find((x) => x.id === p.shopId)?.name}</Text>
-                      <Text style={styles.strong}>{formatAmd(p.amount)}</Text>
-                    </View>
-                    <Button label="Գումարը ստացվել է ✓" onPress={() => run(confirmPayment(p.id))} />
-                  </View>
-                ))}
+                {/* Ղեկավարը հաստատում է միայն եթե ինքն իրեն նշել է «հաստատում է վճարումներ» (Աշխատողներ ներդիր) */}
+                {pend.map((p) => <PaymentCard key={p.id} payment={p} me={me} />)}
               </>
             );
           })()
@@ -146,21 +156,30 @@ export default function Admin() {
                 onPress={async () => {
                   const r = await inviteEmployee(inv.name.trim(), inv.role, inv.department, inv.phone);
                   setError(r.error ?? null);
-                  if (r.code) { setCode(r.code); setInv({ name: '', role: 'driver', department: '', phone: '' }); }
+                  if (r.code) { setCode({ code: r.code, phone: normalizePhone(inv.phone), name: inv.name.trim() }); setInv({ name: '', role: 'driver', department: '', phone: '' }); }
                 }}
               />
               {code ? (
-                <View style={{ backgroundColor: colors.primarySoft, borderRadius: 12, padding: 12, gap: 4 }}>
-                  <Text style={styles.body}>Հրավերի կոդը՝</Text>
-                  <CopyRow label="Կոդ" value={code} />
-                  <Text style={styles.muted}>Աշխատողը բացում է հավելվածը → «Գրանցվել» → «Աշխատող եմ» → գրում է այս կոդը</Text>
+                <View style={{ backgroundColor: colors.primarySoft, borderRadius: 12, padding: 12, gap: 8 }}>
+                  <Text style={styles.body}>Ուղարկեք կոդը {code.name}-ին{code.phone.length > 4 ? ` (${code.phone})` : ''}՝</Text>
+                  {/* Հեռախոսի հաղորդագրությունը բացվում է պատրաստի տեքստով, մնում է սեղմել «Ուղարկել» */}
+                  <InviteSend code={code.code} phone={code.phone} firm={firm.name} />
+                  <CopyRow label="Կոդ (պահուստ)" value={code.code} />
                 </View>
               ) : null}
             </Card>
-            {staff.map((e) => (
-              <View key={e.id} style={[styles.card, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
-                <Text style={[styles.strong, { flex: 1 }]}>{e.name}</Text>
-                <Text style={styles.muted}>{roleName(e.role, e.department)}</Text>
+            {[me, ...staff].map((e) => (
+              <View key={e.id} style={[styles.card, { gap: 6 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Text style={[styles.strong, { flex: 1 }]}>{e.name}{e.id === me.id ? ' (դուք)' : ''}</Text>
+                  <Text style={styles.muted}>{roleName(e.role, e.department)}</Text>
+                </View>
+                {e.role !== 'driver' ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Text style={styles.body}>💳 Հաստատում է վճարումներ</Text>
+                    <Switch value={!!e.canConfirmPayments} onValueChange={(v) => run(setEmployeePermission(e.id, v))} />
+                  </View>
+                ) : null}
               </View>
             ))}
           </>
@@ -219,26 +238,12 @@ export default function Admin() {
           </Card>
         ) : null}
 
-        {tab === 'lines'
-          ? firmLines.map((l) => (
-              <View key={l.id} style={[styles.card, { gap: 8 }]}>
-                <Text style={styles.strong}>{l.name}</Text>
-                <Text style={styles.muted}>
-                  {l.deliveryDays.length ? l.deliveryDays.map((d) => dayShort[d]).join(', ') : 'ամեն օր'}
-                  {l.teamId ? ` · ${firmTeams.find((t) => t.id === l.teamId)?.name ?? ''}` : ''}
-                  {` · ${firmLinks.filter((x) => x.lineId === l.id).length} խանութ`}
-                </Text>
-                <Text style={styles.muted}>Վարորդ՝</Text>
-                <Chips options={driverList.map((d) => ({ value: d.id, label: d.name }))} value={l.driverId ?? null} onChange={(v) => run(setLineDriver(l.id, v))} />
-                <Text style={styles.muted}>Պատվերի վերջնաժամ (դրանից հետո՝ հաջորդ գծին)՝</Text>
-                <Chips
-                  options={[{ value: 'none', label: 'Չկա' }, ...['16:00', '17:00', '18:00', '19:00', '20:00'].map((t) => ({ value: t, label: t }))]}
-                  value={l.orderCutoff ?? 'none'}
-                  onChange={(v) => run(setLineCutoff(l.id, v === 'none' ? null : v))}
-                />
-              </View>
-            ))
-          : null}
+        {tab === 'lines' ? (
+          <>
+            <LinesExplainer />
+            <LinesEditor lines={firmLines} firmId={me.firmId} canCreate />
+          </>
+        ) : null}
 
         {tab === 'teams'
           ? firmTeams.map((t) => (
@@ -278,37 +283,56 @@ export default function Admin() {
         {tab === 'shops' ? <Button kind="dark" label="🏪 Բոլոր խանութները (նոր հաճախորդներ)" onPress={() => router.push('/firm/shops')} /> : null}
         {tab === 'shops' ? <Button kind="outline" label="🟢 Live շուկա" onPress={() => router.push('/market')} /> : null}
         {tab === 'shops'
-          ? firmLinks.map((l) => {
-              const shop = shops.find((s) => s.id === l.shopId);
+          ? // Խանութները՝ ըստ թաղամասերի. սեղմելով՝ խանութի քարտ (ամփոփում, պայմաններ, պատվերներ)
+            [...new Set(firmLinks.map((l) => shops.find((x) => x.id === l.shopId)?.district || 'Առանց թաղամասի'))].sort().map((dist) => {
+              const inDist = firmLinks.filter((l) => (shops.find((x) => x.id === l.shopId)?.district || 'Առանց թաղամասի') === dist);
               return (
-                <View key={l.shopId} style={[styles.card, { gap: 8 }]}>
-                  <Text style={styles.strong}>{shop?.name}</Text>
-                  <Text style={styles.muted}>{[shop?.district, shop?.address].filter(Boolean).join(' · ')}</Text>
-                  <Text style={styles.muted}>Մենեջեր՝</Text>
-                  <Chips options={managers.map((m) => ({ value: m.id, label: m.name }))} value={l.managerId} onChange={(v) => run(setLinkManager(l.shopId, l.firmId, v))} />
-                  <Text style={styles.muted}>Գիծ՝</Text>
-                  <Chips
-                    options={firmLines.map((x) => ({ value: x.id, label: x.name }))}
-                    value={l.lineId ?? null}
-                    onChange={(v) => run(setLinkLine(l.shopId, l.firmId, v))}
-                  />
-                  <Text style={styles.muted}>Զեղչ՝</Text>
-                  <Chips
-                    options={['0', '3', '5', '7', '10', '15'].map((v) => ({ value: v, label: `${v}%` }))}
-                    value={String(l.discountPct ?? 0)}
-                    onChange={(v) => run(setLinkTerms(l.shopId, l.firmId, Number(v), l.creditLimit ?? null))}
-                  />
-                  <Text style={styles.muted}>Պարտքի սահմանաչափ՝</Text>
-                  <Chips
-                    options={[{ value: 'none', label: 'Չկա' }, ...['100000', '300000', '500000', '1000000'].map((v) => ({ value: v, label: formatAmd(Number(v)) }))]}
-                    value={l.creditLimit != null ? String(l.creditLimit) : 'none'}
-                    onChange={(v) => run(setLinkTerms(l.shopId, l.firmId, l.discountPct ?? 0, v === 'none' ? null : Number(v)))}
-                  />
+                <View key={dist} style={{ gap: 6 }}>
+                  <Text style={[styles.strong, { color: colors.textMuted, fontSize: 14, marginTop: 6 }]}>
+                    {dist} · {inDist.length} խանութ
+                  </Text>
+                  {inDist.map((l) => {
+                    const shop = shops.find((x) => x.id === l.shopId);
+                    const debt = debts.find((d) => d.shopId === l.shopId && d.firmId === l.firmId)?.debt ?? 0;
+                    return (
+                      <Pressable
+                        key={l.shopId}
+                        accessibilityRole="button"
+                        onPress={() => router.push(`/firm/shop/${l.shopId}`)}
+                        style={[styles.card, { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 }]}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.strong}>{shop?.name}</Text>
+                          <Text style={styles.muted}>
+                            {managers.find((m) => m.id === l.managerId)?.name ?? ''}
+                            {l.discountPct ? ` · զեղչ ${l.discountPct}%` : ''}
+                          </Text>
+                        </View>
+                        {debt > 0 ? <Text style={{ color: colors.dark, fontWeight: '700' }}>{formatAmd(debt)}</Text> : null}
+                        <Text style={{ color: colors.textMuted }}>›</Text>
+                      </Pressable>
+                    );
+                  })}
                 </View>
               );
             })
           : null}
       </ScrollView>
     </Screen>
+  );
+}
+
+/** Հրավերի կոդը՝ SMS / WhatsApp / Viber-ով, պատրաստի տեքստով (ավտոմատ SMS՝ հետո, SMS ծառայությամբ) */
+function InviteSend({ code, phone, firm }: { code: string; phone: string; firm: string }) {
+  const text = `Բարև։ ${firm}-ը հրավիրում է ձեզ «Մատակարար» հավելված։ Բացեք հավելվածը → «Գրանցվել» → «Ֆիրմայի աշխատող» → կոդը՝ ${code}`;
+  const t = encodeURIComponent(text);
+  const digits = phone.replace(/\D/g, '');
+  const has = digits.length > 4;
+  const open = (url: string) => Linking.openURL(url).catch(() => {});
+  return (
+    <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+      <Button label="SMS" onPress={() => open(`sms:${has ? `+${digits}` : ''}${Platform.OS === 'ios' ? '&' : '?'}body=${t}`)} style={{ flex: 1 }} />
+      <Button label="WhatsApp" onPress={() => open(has ? `https://wa.me/${digits}?text=${t}` : `https://wa.me/?text=${t}`)} style={{ flex: 1 }} />
+      <Button label="Viber" onPress={() => open(`viber://forward?text=${t}`)} style={{ flex: 1 }} />
+    </View>
   );
 }

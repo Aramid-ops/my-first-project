@@ -4,7 +4,7 @@ import { test } from 'node:test';
 
 import { driverDays, earlierThanUsualMin } from '../src/lib/driver-stats';
 import { orderByNearest } from '../src/lib/route';
-import { decQty, incQty, isValidPhone, isValidQty, nextDeliveryDate, normalizePhone } from '../src/lib/rules';
+import { decQty, incQty, isValidPhone, isValidQty, nextDeliveryDate, normalizePhone, orderDeadlineLabel } from '../src/lib/rules';
 import { matches, searchSkeleton, startsWithWord } from '../src/lib/search';
 import type { Product } from '../src/lib/types';
 
@@ -78,4 +78,17 @@ test('հեռախոսահամար. ձևաչափ և ստուգում', () => {
   assert.ok(!isValidPhone('+374 77 1234567')); // ավել թիվ
   assert.ok(isValidPhone('+7 999 123 45 67'));
   assert.ok(!isValidPhone('+374'));
+});
+
+test('վերջնաժամ. առաքումից մեկ օր առաջ, ժամով', () => {
+  // Երկ/ուրբ առաքում, 17:00. կիրակի 10:00-ին → երկուշաբթի, պատվիրել «այսօր մինչև 17:00»
+  const sun10 = new Date(2026, 10, 29, 10, 0); // 29.11.2026 կիրակի
+  const d1 = nextDeliveryDate([1, 5], sun10, '17:00');
+  assert.equal(d1.getDay(), 1);
+  assert.equal(orderDeadlineLabel(d1, '17:00', sun10), 'այսօր մինչև 17:00');
+  // կիրակի 18:00 → ուրբաթ, պատվիրել հինգշաբթի մինչև 17:00
+  const sun18 = new Date(2026, 10, 29, 18, 0);
+  const d2 = nextDeliveryDate([1, 5], sun18, '17:00');
+  assert.equal(d2.getDay(), 5);
+  assert.equal(orderDeadlineLabel(d2, '17:00', sun18), 'հինգշաբթի մինչև 17:00');
 });

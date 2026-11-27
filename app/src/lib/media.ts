@@ -20,7 +20,12 @@ export async function pickAndUpload(folder: string): Promise<{ url?: string; err
  * Փակ փաստաթղթեր (նույնականացում). պահվում են «kyc» փակ պահոցում՝ <user_id>/... պանակում։
  * Վերադարձնում է պահոցի ուղին (հանրային հղում ՉԿԱ)։
  */
-export async function pickPrivateDoc(userId: string, name: string, source: 'camera' | 'library'): Promise<{ path?: string; previewUri?: string; error?: string }> {
+export async function pickPrivateDoc(
+  userId: string,
+  name: string,
+  source: 'camera' | 'library',
+  bucket: 'kyc' | 'receipts' = 'kyc', // receipts՝ վճարման չեկեր, պանակը՝ խանութի id
+): Promise<{ path?: string; previewUri?: string; error?: string }> {
   if (source === 'camera') {
     const p = await ImagePicker.requestCameraPermissionsAsync();
     if (!p.granted) return { error: 'Թույլ տվեք տեսախցիկի օգտագործումը' };
@@ -31,6 +36,6 @@ export async function pickPrivateDoc(userId: string, name: string, source: 'came
   const a = res.assets[0];
   const path = `${userId}/${name}-${Date.now()}.jpg`;
   const body = await (await fetch(a.uri)).arrayBuffer();
-  const { error } = await supabase.storage.from('kyc').upload(path, body, { contentType: a.mimeType ?? 'image/jpeg' });
+  const { error } = await supabase.storage.from(bucket).upload(path, body, { contentType: a.mimeType ?? 'image/jpeg' });
   return error ? { error: error.message } : { path, previewUri: a.uri };
 }

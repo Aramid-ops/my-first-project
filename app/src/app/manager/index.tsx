@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { ForwardPicker } from '@/components/forward-picker';
+import { PaymentCard } from '@/components/payment-card';
 import { deliveryLabel, formatAmd, formatDayTime, formatQty, formatTime } from '@/lib/rules';
 import { ChatButton, PlatformLink } from '@/components/chat-button';
 import { InviteButton } from '@/components/invite-button';
@@ -42,7 +43,10 @@ export default function Inbox() {
     : s.orders.filter((o) => o.assigneeId !== me.id && o.events.some((ev) => ev.byName === me.name));
   const requests = s.links.filter((l) => l.firmId === me.firmId && l.status === 'pending');
   const myLinks = s.links.filter((l) => l.managerId === me.id && l.status === 'active');
-  const pendingPayments = s.payments.filter((p) => p.firmId === me.firmId && !p.confirmed);
+  // Մենեջերը՝ իր խանութների վճարումները, ներքին աշխատողը (հաշվապահ)՝ ֆիրմայի բոլորը
+  const pendingPayments = s.payments.filter(
+    (p) => p.firmId === me.firmId && !p.confirmed && (!isManager || s.links.some((l) => l.shopId === p.shopId && l.firmId === p.firmId && l.managerId === me.id)),
+  );
   // Գրված / թելադրված պատվերներ իմ խանութներից (ղեկավարը տեսնում է բոլորը)
   const textOrders = s.textOrders.filter((t) => t.status === 'new' && t.firmId === me.firmId && (t.managerId === me.id || me.role === 'admin'));
   const recentIssues = s.issues.filter((i) => s.orders.some((o) => o.id === i.orderId) && Date.now() - new Date(i.createdAt).getTime() < 3 * 86400000);
@@ -52,6 +56,7 @@ export default function Inbox() {
         { value: 'orders', label: 'Պատվերներ', hint: `${waiting.length + textOrders.length}` },
         { value: 'requests', label: 'Հայտեր', hint: requests.length ? `${requests.length}` : undefined },
         { value: 'shops', label: 'Իմ խանութները' },
+        { value: 'payments', label: 'Վճարումներ', hint: pendingPayments.length ? `${pendingPayments.length}` : undefined },
       ]
     : [
         { value: 'orders', label: 'Պատվերներ', hint: `${waiting.length}` },
@@ -182,6 +187,7 @@ export default function Inbox() {
               })}
             </View>
             <Button kind="dark" label="🏪 Բոլոր խանութները (նոր հաճախորդներ)" onPress={() => router.push('/firm/shops')} />
+            <Button kind="outline" label="⚙️ Գծեր, առաքման օրեր և վերջնաժամ" onPress={() => router.push('/firm/lines')} />
           </View>
         ) : null}
         {tab === 'shops'
@@ -197,7 +203,10 @@ export default function Inbox() {
                     value={l.lineId ?? null}
                     onChange={(v) => s.setLinkLine(l.shopId, l.firmId, v)}
                   />
-                  <Button kind="outline" label="Նոր պատվեր խանութի անունից" onPress={() => router.push(`/manager/new-order/${l.shopId}`)} />
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <Button kind="outline" label="Նոր պատվեր" onPress={() => router.push(`/manager/new-order/${l.shopId}`)} style={{ flex: 1 }} />
+                    <Button kind="outline" label="⚙️ Քարտ" onPress={() => router.push(`/firm/shop/${l.shopId}`)} style={{ flex: 1 }} />
+                  </View>
                 </View>
               );
             })
@@ -207,16 +216,7 @@ export default function Inbox() {
           pendingPayments.length === 0 ? (
             <Text style={styles.muted}>Հաստատման սպասող վճարում չկա</Text>
           ) : (
-            pendingPayments.map((p) => (
-              <View key={p.id} style={[styles.card, { gap: 8 }]}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <Text style={styles.strong}>{s.shops.find((x) => x.id === p.shopId)?.name}</Text>
-                  <Text style={styles.strong}>{formatAmd(p.amount)}</Text>
-                </View>
-                <Text style={styles.muted}>Խանութը նշել է «Վճարել եմ»{p.markedAt ? ` · ${new Date(p.markedAt).toLocaleDateString()}` : ''}</Text>
-                <Button label="Գումարը ստացվել է ✓" onPress={() => s.confirmPayment(p.id)} />
-              </View>
-            ))
+            pendingPayments.map((p) => <PaymentCard key={p.id} payment={p} me={me} />)
           )
         ) : null}
       </ScrollView>

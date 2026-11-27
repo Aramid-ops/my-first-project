@@ -1,6 +1,7 @@
 // Հավելվածի վիճակի տիպերը (store.tsx-ի և actions/*-ի ընդհանուր մասը)։
 import type { Dispatch, SetStateAction } from 'react';
 
+import type { PaymentMethod } from './types';
 import type { Debt, DriverProfile, Employee, EmployeeRole, Firm, Issue, IssueKind, Line, Order, Payment, Product, SavedList, Shop, ShopFirmLink, Team, TextOrder } from './types';
 
 export type Session =
@@ -77,7 +78,7 @@ export interface CartActions {
 export interface ShopActions {
   requestJoin: (firmId: string) => Result;
   updateShop: (patch: Record<string, unknown>) => Result;
-  markPaid: (firmId: string, amount: number, note: string) => Result;
+  markPaid: (firmId: string, amount: number, note: string, method: PaymentMethod, receiptPath?: string) => Result;
   /** Գրված կամ թելադրված պատվեր՝ մենեջերին */
   sendTextOrder: (firmId: string, text: string) => Result;
 }
@@ -93,6 +94,10 @@ export interface FirmActions {
   setLinkManager: (shopId: string, firmId: string, managerId: string) => Result;
   setLineDriver: (lineId: string, driverId: string | null) => Result;
   setLineCutoff: (lineId: string, cutoff: string | null) => Result;
+  setLineReminder: (lineId: string, minutes: number | null) => Result;
+  setEmployeePermission: (employeeId: string, canConfirmPayments: boolean) => Result;
+  forwardPayment: (paymentId: string, toEmployeeId: string) => Result;
+  markVerificationPaid: () => Result;
   toggleTeamMember: (teamId: string, employeeId: string) => Result;
   finishTextOrder: (id: string) => Result;
 }

@@ -1,4 +1,4 @@
-import type { Product, Weekday } from './types';
+import type { Employee, Firm, Product, Weekday } from './types';
 
 /** Քանակի հաջորդ արժեքը «+» սեղմելիս. 0 → նվազագույն, հետո՝ քայլով */
 export function incQty(p: Product, qty: number): number {
@@ -95,4 +95,20 @@ export function normalizePhone(v: string): string {
 export function isValidPhone(v: string): boolean {
   const d = normalizePhone(v).slice(1);
   return d.startsWith('374') ? d.length === 11 : d.length >= 10 && d.length <= 15;
+}
+
+/** Մինչև երբ պատվիրել, որ հասցնի այս առաքմանը. «այսօր մինչև 17:00» / «կիրակի մինչև 17:00» (առաքումից մեկ օր առաջ) */
+export function orderDeadlineLabel(delivery: Date, cutoff?: string, from: Date = new Date()): string {
+  const day = new Date(delivery);
+  day.setDate(day.getDate() - 1);
+  const a = new Date(from);
+  a.setHours(0, 0, 0, 0);
+  day.setHours(0, 0, 0, 0);
+  const name = day.getTime() === a.getTime() ? 'այսօր' : weekdayNames[weekdayOf(day)];
+  return cutoff ? `${name} մինչև ${cutoff}` : `${name} ներառյալ`;
+}
+
+/** Ֆիրման ունի՞ գործող ղեկավար (նույնը, ինչ բազայում՝ firm_has_admin). եթե ոչ՝ մենեջերը ինքն է հաստատում և կարգավորում */
+export function firmHasAdmin(employees: Employee[], firm?: Firm): boolean {
+  return !!firm && firm.verified !== false && employees.some((e) => e.firmId === firm.id && e.role === 'admin' && e.active !== false && e.hasAccount);
 }

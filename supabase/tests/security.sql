@@ -64,9 +64,17 @@ update orders set status = 'preparing', assignee_id = '20000000-0000-0000-0000-0
 select pg_temp.as_user('00000000-0000-0000-0000-000000000004');
 do $$ begin assert (select count(*) from orders) = 1, 'վարորդը պետք է տեսներ իր պատվերը'; end $$;
 
--- 8. Խանութը չի կարող ինքն իր վճարումը «հաստատել»
+-- 8. Խանութը չի կարող ինքն իր վճարումը «հաստատել», ոչ էլ նշել պարտքից ավելի
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+update orders set status = 'delivered';
+set role authenticated;
 select pg_temp.as_user('00000000-0000-0000-0000-000000000001');
-insert into payments(shop_id, firm_id, amount, confirmed_at) values ('30000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001', 1000, now());
+do $$ begin
+  begin insert into payments(shop_id, firm_id, amount) values ('30000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001', 100000000); raise exception 'պետք է մերժվեր';
+  exception when raise_exception then if sqlerrm = 'պետք է մերժվեր' then raise; end if; end;
+end $$;
+insert into payments(shop_id, firm_id, amount, confirmed_at) values ('30000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001', 100, now());
 do $$ begin assert (select confirmed_at from payments) is null, 'խանութը չպետք է կարողանար հաստատել'; end $$;
 
 -- 9. Ինքնուրույն մենեջեր → «unclaimed» ֆիրմա, ապրանք (արտիկուլով); ֆիրման «վերցնում է» → մենեջերը մնում է
@@ -263,6 +271,45 @@ do $$ begin
 end $$;
 select pg_temp.as_user('00000000-0000-0000-0000-000000000020');
 do $$ begin assert (select count(*) from deal_interested_shops((select id from supplier_deals limit 1))) = 1, 'ֆիրման պետք է տեսներ ով է հետաքրքրվել'; end $$;
+
+-- 19. Վճարման հաստատում. ղեկավարը՝ միայն թույլտվությամբ, հաշվապահը՝ թույլտվությամբ; փոխանցում հաշվապահին
+select pg_temp.as_user('00000000-0000-0000-0000-000000000007');   -- Աթենքի ղեկավար
+update payments set confirmed_at = now() where firm_id = '10000000-0000-0000-0000-000000000001';
+do $$ begin assert (select count(*) from payments where confirmed_at is not null and firm_id = '10000000-0000-0000-0000-000000000001') = 0, 'ղեկավարը առանց թույլտվության չպետք է հաստատեր'; end $$;
+update employees set can_confirm_payments = true where id = '20000000-0000-0000-0000-000000000002';   -- Անին՝ հաշվապահ
+select pg_temp.as_user('00000000-0000-0000-0000-000000000002');   -- Կարեն (մենեջեր, ֆիրման ղեկավար ունի)
+select forward_payment((select id from payments where firm_id = '10000000-0000-0000-0000-000000000001' limit 1), '20000000-0000-0000-0000-000000000002');
+update payments set confirmed_at = now() where firm_id = '10000000-0000-0000-0000-000000000001';
+do $$ begin assert (select count(*) from payments where confirmed_at is not null and firm_id = '10000000-0000-0000-0000-000000000001') = 0, 'մենեջերը չպետք է հաստատեր'; end $$;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000003');   -- Անի
+update payments set confirmed_at = now() where firm_id = '10000000-0000-0000-0000-000000000001';
+do $$ begin assert (select count(*) from payments where confirmed_at is not null and firm_id = '10000000-0000-0000-0000-000000000001') >= 1, 'հաշվապահը պետք է կարողանար հաստատել'; end $$;
+
+-- 20. Նոր ֆիրման առանց բանկային ստուգման ադմինի գործիքներ չունի
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+insert into auth.users values ('00000000-0000-0000-0000-000000000040','newfirm@x.am','{"kind":"firm","firm_name":"Նոր Ֆիրմա","name":"Տեր"}');
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000040');
+do $$ begin
+  assert not is_firm_admin((select firm_id from employees where user_id = auth.uid())), 'չստուգված ֆիրմայի ադմինը չպետք է ունենար իրավունքներ';
+  assert (select verification_code from firms where id = (select firm_id from employees where user_id = auth.uid())) like 'MTK-%', 'կոդ չկա';
+end $$;
+select mark_verification_paid();
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+insert into platform_admins values ('00000000-0000-0000-0000-000000000007') on conflict do nothing;
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000007');
+do $$ begin assert (select count(*) from pending_firm_activations() where paid_at is not null) = 1, 'հարթակը պետք է տեսներ'; end $$;
+select decide_firm_activation((select firm_id from pending_firm_activations() limit 1), true);
+select pg_temp.as_user('00000000-0000-0000-0000-000000000040');
+do $$ begin assert is_firm_admin((select firm_id from employees where user_id = auth.uid())), 'ստուգվելուց հետո պետք է լիներ ադմին'; end $$;
+
+-- 21. Ֆիրման առանց թույլտվության չի կարող «հաստատված» վճարում ավելացնել
+select pg_temp.as_user('00000000-0000-0000-0000-000000000007');   -- Աթենքի ղեկավար (թույլտվություն չունի)
+insert into payments(shop_id, firm_id, amount, confirmed_at) values ('30000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001', 50000, now());
+do $$ begin assert (select confirmed_at from payments where amount = 50000) is null, 'առանց թույլտվության չպետք է լիներ հաստատված'; end $$;
 
 reset role;
 \echo ✅ Բազայի բոլոր ստուգումներն անցան

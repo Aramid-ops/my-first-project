@@ -34,6 +34,9 @@ export const mapFirm = (r: any): Firm => ({
   address: r.address ?? undefined,
   legalName: r.legal_name ?? undefined,
   taxId: r.tax_id ?? undefined,
+  verified: r.verified ?? true,
+  verificationCode: r.verification_code ?? undefined,
+  verificationPaidAt: r.verification_paid_at ?? undefined,
 });
 
 export const mapEmployee = (r: any): Employee => ({
@@ -45,6 +48,9 @@ export const mapEmployee = (r: any): Employee => ({
   defaultForwardToId: r.default_forward_to ?? undefined,
   phone: r.phone ?? undefined,
   districts: r.districts ?? [],
+  canConfirmPayments: !!r.can_confirm_payments,
+  active: r.active ?? true,
+  hasAccount: !!r.user_id,
 });
 
 export const mapShop = (r: any): Shop => ({
@@ -82,6 +88,7 @@ export const mapLine = (r: any): Line => ({
   deliveryDays: (r.delivery_days ?? []) as Weekday[],
   driverId: r.driver_id ?? undefined,
   orderCutoff: r.order_cutoff ? String(r.order_cutoff).slice(0, 5) : undefined,
+  reminderMinutes: r.reminder_minutes ?? undefined,
 });
 
 export const mapTeams = (teams: any[], members: any[]): Team[] =>
@@ -120,7 +127,7 @@ export const mapOrder = (r: any): Order => ({
   status: r.status as OrderStatus,
   deliveryDate: r.delivery_date,
   createdAt: r.created_at,
-  items: (r.order_items ?? []).map((i: any) => ({ productId: i.product_id, qty: Number(i.qty), actualQty: num(i.actual_qty) })),
+  items: (r.order_items ?? []).map((i: any) => ({ productId: i.product_id, qty: Number(i.qty), actualQty: num(i.actual_qty), price: num(i.price) })),
   events: (r.order_events ?? [])
     .map((e: any) => ({ at: e.at, byName: e.actor_name, text: e.text, lat: e.lat ?? undefined, lng: e.lng ?? undefined }))
     .sort((a: any, b: any) => a.at.localeCompare(b.at)),
@@ -154,6 +161,9 @@ export const mapPayment = (r: any): Payment => ({
   confirmed: !!r.confirmed_at,
   markedAt: r.marked_paid_by_shop_at ?? undefined,
   note: r.note ?? undefined,
+  method: r.method ?? 'transfer',
+  receiptPath: r.receipt_path ?? undefined,
+  forwardedTo: r.forwarded_to ?? undefined,
 });
 
 export const mapSavedList = (r: any): SavedList => ({

@@ -10,7 +10,8 @@ import { colors, radius } from '@/lib/theme';
 import { Button, Chips, CopyRow, Screen, styles, Title } from '@/lib/ui';
 
 type Ver = { user_id: string; name: string; phone: string | null; license_categories: string[]; front: string; back: string; selfie: string; document_type: string; urls?: string[] };
-type Claim = { id: string; firm_name: string; data: Record<string, string>; email: string };
+type Claim = { id: string; firm_name: string; data: Record<string, string>; email: string; code: string; paid_at: string | null };
+type Activation = { firm_id: string; firm_name: string; tax_id: string; code: string; paid_at: string | null; email: string };
 
 export default function Platform() {
   const { signOut } = useStore();
@@ -18,13 +19,15 @@ export default function Platform() {
   const [tab, setTab] = useState<'drivers' | 'firms'>('drivers');
   const [vers, setVers] = useState<Ver[]>([]);
   const [claims, setClaims] = useState<Claim[]>([]);
+  const [acts, setActs] = useState<Activation[]>([]);
   const [note, setNote] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     const { data: me } = await supabase.from('platform_admins').select('user_id').maybeSingle();
     setAllowed(!!me);
     if (!me) return;
-    const [{ data: v }, { data: c }] = await Promise.all([supabase.rpc('pending_verifications'), supabase.rpc('pending_claims')]);
+    const [{ data: v }, { data: c }, { data: a }] = await Promise.all([supabase.rpc('pending_verifications'), supabase.rpc('pending_claims'), supabase.rpc('pending_firm_activations')]);
+    setActs((a ?? []) as Activation[]);
     const withUrls = await Promise.all(
       ((v ?? []) as Ver[]).map(async (x) => {
         const { data } = await supabase.storage.from('kyc').createSignedUrls([x.front, x.back, x.selfie], 600);
@@ -53,7 +56,7 @@ export default function Platform() {
         <Chips
           options={[
             { value: 'drivers', label: 'Վարորդներ', hint: `${vers.length}` },
-            { value: 'firms', label: 'Ֆիրմաներ', hint: `${claims.length}` },
+            { value: 'firms', label: 'Ֆիրմաներ', hint: `${claims.length + acts.length}` },
           ]}
           value={tab}
           onChange={setTab}
@@ -86,11 +89,28 @@ export default function Platform() {
               </View>
             ))
           : null}
-        {tab === 'firms' && claims.length === 0 ? <Text style={styles.muted}>Ֆիրմայի հայտ չկա</Text> : null}
+        {tab === 'firms' && claims.length === 0 && acts.length === 0 ? <Text style={styles.muted}>Ֆիրմայի հայտ չկա</Text> : null}
+        {/* 🏦 Ակտիվացում. համեմատել մեր բանկային քաղվածքի հետ՝ կոդ + ուղարկողի ՀՎՀՀ */}
+        {tab === 'firms'
+          ? acts.map((a) => (
+              <View key={a.firm_id} style={[styles.card, { gap: 6 }]}>
+                <Text style={styles.muted}>🏦 Նոր ֆիրմա · {a.paid_at ? 'նշել է «Վճարել եմ»' : 'դեռ չի վճարել'}</Text>
+                <Text style={[styles.strong, { fontSize: 18 }]}>{a.firm_name}</Text>
+                <CopyRow label="Կոդ" value={a.code} />
+                <CopyRow label="ՀՎՀՀ" value={a.tax_id} />
+                <CopyRow label="Էլ. փոստ" value={a.email} />
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <Button kind="outline" label="Փոխանցում չկա" onPress={async () => { await supabase.rpc('decide_firm_activation', { p_firm: a.firm_id, p_approve: false }); load(); }} style={{ flex: 1 }} />
+                  <Button label="Ստացվել է ✓" onPress={async () => { await supabase.rpc('decide_firm_activation', { p_firm: a.firm_id, p_approve: true }); load(); }} style={{ flex: 1 }} />
+                </View>
+              </View>
+            ))
+          : null}
         {tab === 'firms'
           ? claims.map((c) => (
               <View key={c.id} style={[styles.card, { gap: 6 }]}>
-                <Text style={styles.muted}>Ուզում է «վերցնել» ֆիրման</Text>
+                <Text style={styles.muted}>Ուզում է «վերցնել» ֆիրման · {c.paid_at ? 'նշել է «Վճարել եմ»' : 'դեռ չի վճարել'}</Text>
+                <CopyRow label="Կոդ (փոխանցման նպատակ)" value={c.code} />
                 <Text style={[styles.strong, { fontSize: 18 }]}>{c.firm_name}</Text>
                 <CopyRow label="Անվանում" value={c.data.legal_name} />
                 <CopyRow label="ՀՎՀՀ" value={c.data.tax_id} />

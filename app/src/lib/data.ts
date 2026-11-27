@@ -48,9 +48,9 @@ export async function loadData(uid: string): Promise<Data | null> {
       .gte('created_at', new Date(Date.now() - 90 * 86400000).toISOString())
       .order('created_at', { ascending: false })
       .limit(500),
-    supabase.from('teams').select('*'),
+    supabase.from('teams').select('*').order('name'),
     supabase.from('team_members').select('*'),
-    supabase.from('lines').select('*'),
+    supabase.from('lines').select('*').order('name'),   // կայուն հերթականություն (փոխելիս չեն տեղաշարժվում)
     supabase.from('order_issues').select('*').order('created_at', { ascending: false }),
     supabase.rpc('debts'),
     supabase.from('payments').select('*').order('marked_paid_by_shop_at', { ascending: false }),

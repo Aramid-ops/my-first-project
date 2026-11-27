@@ -1,5 +1,6 @@
 // Մուտք էլ. փոստով և գաղտնաբառով (Supabase Auth)
 import { Image } from 'expo-image';
+import { ActivationCard } from '@/components/activation-card';
 import { Link, Redirect, router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
@@ -17,14 +18,14 @@ export default function SignIn() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [claimPending, setClaimPending] = useState(false);
+  const [claim, setClaim] = useState<{ verification_code: string; paid_at: string | null } | null>(null);
   // մուտքից հետո, երբ տվյալները եկան՝ բրենդի էկրանը փակվում է
   useEffect(() => {
     if (session) setBusy(false);
   }, [session]);
   useEffect(() => {
     if (session?.kind !== 'none') return;
-    supabase.from('firm_claims').select('status').eq('status', 'pending').then(({ data }) => setClaimPending(!!data?.length));
+    supabase.from('firm_claims').select('verification_code, paid_at').eq('status', 'pending').maybeSingle().then(({ data }) => setClaim(data));
     // հարթակի ադմին → ստուգումների էջ
     supabase.from('platform_admins').select('user_id').maybeSingle().then(({ data }) => { if (data) router.replace('/platform'); });
   }, [session]);
@@ -53,10 +54,9 @@ export default function SignIn() {
         {session?.kind === 'none' ? (
           <Card style={{ gap: 12 }}>
             <Text style={styles.body}>
-              {claimPending
-                ? 'Ձեր ֆիրմայի հայտը ստուգվում է. հաստատելուց հետո կտեսնեք ֆիրմայի էջը (սովորաբար՝ նույն օրը)։'
-                : `${userEmail} հաշիվը դեռ կցված չէ որևէ խանութի կամ ֆիրմայի։`}
+              {claim ? 'Ֆիրման ձեզ կփոխանցվի բանկային ստուգումից հետո։' : `${userEmail} հաշիվը դեռ կցված չէ որևէ խանութի կամ ֆիրմայի։`}
             </Text>
+            {claim ? <ActivationCard code={claim.verification_code} paidAt={claim.paid_at} onPaid={() => setClaim({ ...claim, paid_at: new Date().toISOString() })} /> : null}
             <Button label="Թարմացնել" onPress={reload} />
             <Button kind="outline" label="Դուրս գալ" onPress={signOut} />
           </Card>

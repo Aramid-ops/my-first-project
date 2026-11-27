@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { matches } from '@/lib/search';
-import { decQty, deliveryLabel, formatAmd, incQty } from '@/lib/rules';
+import { decQty, deliveryLabel, formatAmd, incQty, orderDeadlineLabel } from '@/lib/rules';
 import { useStore } from '@/lib/store';
 import { colors, radius } from '@/lib/theme';
 import { Button, Logo, Pill, Screen, styles } from '@/lib/ui';
@@ -32,7 +32,7 @@ export default function SupplierCatalog() {
           <Text style={[styles.strong, { fontSize: 18 }]}>{firm.name}</Text>
           <Text style={styles.muted}>
             {manager.name} · առաքում՝ {deliveryLabel(deliveryDate(link))}
-            {cutoffOf(link) ? ` · պատվիրեք մինչև ${cutoffOf(link)}` : ''}
+            {cutoffOf(link) ? ` · պատվիրեք ${orderDeadlineLabel(deliveryDate(link), cutoffOf(link))}` : ''}
           </Text>
         </View>
         {manager.phone ? (
