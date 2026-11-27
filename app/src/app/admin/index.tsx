@@ -276,7 +276,7 @@ export default function Admin() {
           : null}
 
         {tab === 'shops' ? <Button kind="dark" label="🏪 Բոլոր խանութները (նոր հաճախորդներ)" onPress={() => router.push('/firm/shops')} /> : null}
-        {tab === 'shops' ? <Button kind="outline" label="🔴 Live շուկա" onPress={() => router.push('/market')} /> : null}
+        {tab === 'shops' ? <Button kind="outline" label="🟢 Live շուկա" onPress={() => router.push('/market')} /> : null}
         {tab === 'shops'
           ? firmLinks.map((l) => {
               const shop = shops.find((s) => s.id === l.shopId);

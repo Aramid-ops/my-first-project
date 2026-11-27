@@ -1,4 +1,4 @@
-// 🔴 Live շուկա. երկու պատուհան, որ թարմանում են ակնթարթորեն
+// 🟢 Live շուկա. երկու պատուհան, որ թարմանում են ակնթարթորեն
 //   🛒 Խանութները ուզում են   — խանութը գրում է ինչ է պետք → մատակարարը «Առաջարկել»
 //   💼 Մատակարարները առաջարկում են — մատակարարը գրում է առաջարկը → խանութը «Հետաքրքրված եմ»
 import { Redirect, router } from 'expo-router';
@@ -71,19 +71,22 @@ export default function LiveMarket() {
   const shopId = session?.kind === 'shop' ? session.shopId : null;
 
   // Վերևի դաշտը. խանութը՝ «ինչ է պետք», մատակարարը՝ «ինչ եք առաջարկում»
-  const canPost = (tab === 'wants' && isShop) || (tab === 'offers' && !!me);
+  // Խանութը միշտ գրում է «ինչ է պետք», մատակարարը՝ «ինչ է առաջարկում» (ցանկացած ներդիրից)
+  const canPost = isShop || !!me;
+  const postKind: Tab = isShop ? 'wants' : 'offers';
   const post = async () => {
     const t = text.trim();
     if (t.length < 2) return;
     const p = price ? Number(price) : null;
     const { error } =
-      tab === 'wants'
+      postKind === 'wants'
         ? await supabase.from('supply_requests').insert({ shop_id: shopId, text: t, price_hint: p })
         : await supabase.from('supplier_deals').insert({ firm_id: me!.firmId, employee_id: me!.id, text: t, price: p });
     if (error) return setMsg(error.message);
     setText('');
     setPrice('');
     setMsg(null);
+    setTab(postKind); // ցույց տալ հենց հրապարակվածը
     load();
   };
 
@@ -94,26 +97,15 @@ export default function LiveMarket() {
           <Text style={{ fontSize: 24 }}>‹</Text>
         </Pressable>
         <Text style={{ fontSize: 24, fontWeight: '700', color: colors.text, flex: 1 }}>
-          <Text style={{ color: '#D2333F' }}>●</Text> Live շուկա
+          <Text style={{ color: '#2E9E5B' }}>●</Text> Live շուկա
         </Text>
       </View>
-      <View style={{ marginBottom: 10 }}>
-        <Chips
-          options={[
-            { value: 'wants', label: '🛒 Խանութները ուզում են', hint: `${reqs.length}` },
-            { value: 'offers', label: '💼 Մատակարարները առաջարկում են', hint: `${deals.length}` },
-          ]}
-          value={tab}
-          onChange={(v) => { setTab(v as Tab); setMsg(null); }}
-        />
-      </View>
-
       {canPost ? (
         <View style={{ gap: 8, marginBottom: 12 }}>
           <TextInput
             importantForAutofill="no"
-            accessibilityLabel={tab === 'wants' ? 'Ինչ է ձեզ պետք' : 'Ինչ եք առաջարկում'}
-            placeholder={tab === 'wants' ? '📣 Ի՞նչ է ձեզ պետք (օր.՝ ձու, 300 հատ)' : '💼 Ի՞նչ եք առաջարկում (օր.՝ Ձու C0 թարմ)'}
+            accessibilityLabel={postKind === 'wants' ? 'Ինչ է ձեզ պետք' : 'Ինչ եք առաջարկում'}
+            placeholder={postKind === 'wants' ? '📣 Ի՞նչ է ձեզ պետք' : '💼 Ի՞նչ եք առաջարկում'}
             value={text}
             onChangeText={setText}
             returnKeyType="send"
@@ -125,7 +117,7 @@ export default function LiveMarket() {
               <TextInput
                 importantForAutofill="no"
                 accessibilityLabel="Գին"
-                placeholder={tab === 'wants' ? 'Ցանկալի գինը ֏ (ըստ ցանկության)' : 'Գինը ֏ (ըստ ցանկության)'}
+                placeholder={postKind === 'wants' ? 'Ցանկալի գինը ֏ (ըստ ցանկության)' : 'Գինը ֏ (ըստ ցանկության)'}
                 value={price}
                 onChangeText={(v) => setPrice(v.replace(/\D/g, ''))}
                 keyboardType="number-pad"
@@ -134,6 +126,17 @@ export default function LiveMarket() {
               <Button label="Հրապարակել" onPress={post} />
             </View>
           ) : null}
+      <View style={{ marginBottom: 10 }}>
+        <Chips
+          options={[
+            { value: 'wants', label: '🛒 Խանութները ուզում են', hint: `${reqs.length}` },
+            { value: 'offers', label: '💼 Մատակարարները առաջարկում են', hint: `${deals.length}` },
+          ]}
+          value={tab}
+          onChange={(v) => { setTab(v as Tab); setMsg(null); }}
+        />
+      </View>
+
           {msg ? <Text style={{ color: colors.warnText }}>{msg}</Text> : null}
         </View>
       ) : null}

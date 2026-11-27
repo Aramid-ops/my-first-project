@@ -176,7 +176,7 @@ export default function Search() {
         {q.trim() && !loading ? (
           <Pressable accessibilityRole="button" onPress={() => router.push('/market')} style={[styles.card, { marginTop: 4 }]}>
             <Text style={styles.strong}>📣 Չգտա՞ք հարմարը</Text>
-            <Text style={styles.muted}>Գրեք «Փնտրում եմ {q.trim()}», և մատակարարները կուղարկեն առաջարկ →</Text>
+            <Text style={styles.muted}>Գրեք Live շուկայում, և մատակարարները կուղարկեն առաջարկ →</Text>
           </Pressable>
         ) : null}
       </ScrollView>
