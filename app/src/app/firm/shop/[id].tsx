@@ -1,20 +1,28 @@
 // Խանութի քարտ (ֆիրմայի կողմից). վերջին 30 օրվա ամփոփում, պայմաններ (զեղչ, սահմանաչափ, գիծ, մենեջեր), վերջին պատվերներ
 // Ղեկավարը փոխում է ամեն ինչ, մենեջերը՝ իր խանութի պայմանները (թույլտվությունները՝ բազայում)
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+
+import { supabase } from '@/lib/supabase';
 import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { formatAmd, formatDayTime } from '@/lib/rules';
 import { useStore } from '@/lib/store';
 import { colors } from '@/lib/theme';
-import { shopStatusLabel, type Order } from '@/lib/types';
+import { shopStatusLabel, type Order, type Perm } from '@/lib/types';
 import { Button, Card, Chips, Field, Screen, styles, Title } from '@/lib/ui';
 
 const orderTotal = (o: Order) => o.items.reduce((s, i) => s + (i.actualQty ?? i.qty) * (i.price ?? 0), 0);
 
 export default function FirmShopCard() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { session, employees, shops, links, lines, orders, payments, debts, setLinkTerms, setLinkLine, setLinkManager } = useStore();
+  const { session, employees, shops, links, lines, orders, payments, debts, perms, setLinkTerms, setLinkLine, setLinkManager, setLinkBlocked } = useStore();
+  const [reason, setReason] = useState('');
+  const [note, setNote] = useState<string | null>(null);
+  useEffect(() => {
+    supabase.from('link_block_notes').select('reason').eq('shop_id', id).maybeSingle().then(({ data }) => setNote(data?.reason ?? null));
+  }, [id, links]);
+  const can = (p: Perm) => perms.includes(p);
   const [discount, setDiscount] = useState<string | null>(null);
   const [limit, setLimit] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -67,6 +75,8 @@ export default function FirmShopCard() {
 
         <Card style={{ gap: 10 }}>
           <Text style={styles.strong}>Պայմաններ</Text>
+          {can('shop_terms') ? (
+          <>
           <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-end' }}>
             <View style={{ flex: 1 }}>
               <Field label="Զեղչ, %" value={d} onChangeText={(v) => setDiscount(v.replace(/[^\d.]/g, '').slice(0, 5))} keyboardType="number-pad" />
@@ -84,12 +94,22 @@ export default function FirmShopCard() {
               setLimit(null);
             }}
           />
+          </>
+          ) : (
+            <Text style={styles.body}>
+              Զեղչ՝ {link.discountPct ?? 0}% · սահմանաչափ՝ {link.creditLimit != null ? formatAmd(link.creditLimit) : 'չկա'}
+            </Text>
+          )}
+          {can('lines') || can('shop_terms') ? (
+          <>
           <Text style={styles.muted}>Գիծ (առաքման օրեր)</Text>
           <Chips
             options={[{ value: 'none', label: 'Առանց գծի' }, ...lines.filter((x) => x.firmId === me.firmId).map((x) => ({ value: x.id, label: x.name }))]}
             value={link.lineId ?? 'none'}
             onChange={(v) => run(setLinkLine(id, me.firmId, v === 'none' ? null : v))}
           />
+          </>
+          ) : null}
           {isAdmin && employees.some((e) => e.firmId === me.firmId && e.role === 'manager') ? (
             <>
               <Text style={styles.muted}>Մենեջեր</Text>
@@ -102,6 +122,24 @@ export default function FirmShopCard() {
           ) : null}
           {msg ? <Text style={{ color: colors.warnText }}>{msg}</Text> : null}
         </Card>
+
+        {/* ⛔ Սև ցուցակ. խանութը չի կարող պատվիրել (միայն վճարել); պատճառը տեսնում է միայն ֆիրման */}
+        {can('blacklist') || link.blocked ? (
+          <Card style={{ gap: 8, borderColor: link.blocked ? colors.warnText : colors.border }}>
+            <Text style={styles.strong}>{link.blocked ? '⛔ Սև ցուցակում է' : '⛔ Սև ցուցակ'}</Text>
+            {link.blocked && note ? <Text style={styles.body}>Պատճառը՝ {note}</Text> : null}
+            {can('blacklist') ? (
+              link.blocked ? (
+                <Button kind="outline" label="✅ Հանել սև ցուցակից" onPress={() => run(setLinkBlocked(id, me.firmId, false, null))} />
+              ) : (
+                <>
+                  <Field label="Պատճառը (տեսնում է միայն ֆիրման)" value={reason} onChangeText={setReason} autoComplete="off" />
+                  <Button kind="outline" label="⛔ Ավելացնել սև ցուցակ" disabled={!reason.trim()} onPress={() => run(setLinkBlocked(id, me.firmId, true, reason.trim()))} />
+                </>
+              )
+            ) : null}
+          </Card>
+        ) : null}
 
         <Text style={[styles.strong, { color: colors.textMuted, fontSize: 14 }]}>Վերջին պատվերներ</Text>
         {mine.length === 0 ? <Text style={styles.muted}>Պատվեր դեռ չկա</Text> : null}

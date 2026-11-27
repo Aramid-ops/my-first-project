@@ -78,6 +78,8 @@ export const mapLink = (r: any): ShopFirmLink => ({
   lineId: r.line_id ?? undefined,
   discountPct: Number(r.discount_pct ?? 0),
   creditLimit: num(r.credit_limit),
+  blocked: !!r.blocked,
+  initiatedBy: r.initiated_by ?? 'shop',
 });
 
 export const mapLine = (r: any): Line => ({

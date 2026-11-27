@@ -8,22 +8,23 @@ import { firmHasAdmin, formatAmd, formatDayTime } from '@/lib/rules';
 import { useStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { colors } from '@/lib/theme';
-import { paymentMethodLabel, type Employee, type Firm, type Payment } from '@/lib/types';
+import { paymentMethodLabel, type Employee, type Firm, type Payment, type Perm } from '@/lib/types';
 import { Button, Chips, styles } from '@/lib/ui';
 
 /** Կարո՞ղ է այս աշխատողը հաստատել այս վճարումը (նույն կանոնը, ինչ բազայում՝ can_confirm_payment) */
-export function canConfirm(me: Employee, employees: Employee[], firm: Firm | undefined, managerOfShop?: string) {
-  return !!me.canConfirmPayments || (!firmHasAdmin(employees, firm) && me.role === 'manager' && managerOfShop === me.id);
+export function canConfirm(me: Employee, perms: Perm[], employees: Employee[], firm: Firm | undefined, managerOfShop?: string) {
+  return perms.includes('payments_confirm') || (!firmHasAdmin(employees, firm) && me.role === 'manager' && managerOfShop === me.id);
 }
 
 export function PaymentCard({ payment: p, me }: { payment: Payment; me: Employee }) {
-  const { shops, employees, links, firms, confirmPayment, forwardPayment } = useStore();
+  const { shops, employees, links, firms, perms, confirmPayment, forwardPayment } = useStore();
   const [err, setErr] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
   const link = links.find((l) => l.shopId === p.shopId && l.firmId === p.firmId);
-  const mayConfirm = canConfirm(me, employees, firms.find((f) => f.id === me.firmId), link?.managerId);
-  const confirmers = employees.filter((e) => e.firmId === me.firmId && e.canConfirmPayments && e.id !== me.id);
+  const mayConfirm = canConfirm(me, perms, employees, firms.find((f) => f.id === me.firmId), link?.managerId);
+  // ում կարելի է փոխանցել. ներքին աշխատողներ և ղեկավար (իրական թույլտվությունը ստուգում է բազան)
+  const confirmers = employees.filter((e) => e.firmId === me.firmId && e.id !== me.id && (e.role === 'staff' || e.role === 'admin') && e.hasAccount);
   const forwarded = employees.find((e) => e.id === p.forwardedTo);
 
   return (
@@ -73,7 +74,7 @@ export function PaymentCard({ payment: p, me }: { payment: Payment; me: Employee
           <Button kind="outline" label="📨 Փոխանցել հաշվապահին" onPress={() => setPicking(true)} />
         )
       ) : (
-        <Text style={styles.muted}>Հաստատում է ֆիրմայի հաշվապահը (ղեկավարը պետք է նշի նրան «Աշխատողներ» էջում)</Text>
+        <Text style={styles.muted}>Հաստատում է ֆիրմայի հաշվապահը (ղեկավարը նշում է «🔐 Թույլտվություններ» էջում)</Text>
       )}
       {err ? <Text style={{ color: colors.warnText }}>{err}</Text> : null}
     </View>

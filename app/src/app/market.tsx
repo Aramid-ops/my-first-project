@@ -14,11 +14,11 @@ import { colorFor } from '@/lib/mappers';
 
 type Req = {
   id: string; text: string; category: string | null; price_hint: number | null; created_at: string;
-  shop_name: string | null; district: string | null; phone: string | null; mine: boolean; my_offer: string | null; offers: number;
+  shop_name: string | null; district: string | null; phone: string | null; mine: boolean; my_offer: string | null; offers: number; qty: number | null; unit: string | null; blocked: boolean;
 };
 type Deal = {
   id: string; firm_id: string; firm_name: string; firm_logo: string | null; text: string; category: string | null; price: number | null;
-  created_at: string; employee_name: string | null; phone: string | null; mine: boolean; interested: boolean; interests: number | null;
+  created_at: string; employee_name: string | null; phone: string | null; mine: boolean; interested: boolean; interests: number | null; qty: number | null; unit: string | null;
 };
 type Tab = 'wants' | 'offers';
 
@@ -42,6 +42,8 @@ export default function LiveMarket() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [text, setText] = useState('');
   const [price, setPrice] = useState('');
+  const [qty, setQty] = useState('');
+  const [unit, setUnit] = useState<string>('հատ');
   const [msg, setMsg] = useState<string | null>(null);
   const [offerFor, setOfferFor] = useState<string | null>(null);
   const [offerText, setOfferText] = useState('');
@@ -70,21 +72,24 @@ export default function LiveMarket() {
   if (!isShop && !me) return <Redirect href="/" />;
   const shopId = session?.kind === 'shop' ? session.shopId : null;
 
-  // Վերևի դաշտը. խանութը՝ «ինչ է պետք», մատակարարը՝ «ինչ եք առաջարկում»
-  // Խանութը միշտ գրում է «ինչ է պետք», մատակարարը՝ «ինչ է առաջարկում» (ցանկացած ներդիրից)
+  // Վերևի դաշտը. խանութը միշտ գրում է «ինչ է պետք», մատակարարը՝ «ինչ է առաջարկում» (ցանկացած ներդիրից)
   const canPost = isShop || !!me;
   const postKind: Tab = isShop ? 'wants' : 'offers';
   const post = async () => {
     const t = text.trim();
-    if (t.length < 2) return;
+    if (t.length < 2) return setMsg('Գրեք ապրանքը');
+    const q = qty ? Number(qty.replace(',', '.')) : null;
+    if (q !== null && !(q > 0)) return setMsg('Քանակը պետք է լինի 0-ից մեծ թիվ');
+    const row = { text: t, qty: q, unit: q ? unit : null };
     const p = price ? Number(price) : null;
     const { error } =
       postKind === 'wants'
-        ? await supabase.from('supply_requests').insert({ shop_id: shopId, text: t, price_hint: p })
-        : await supabase.from('supplier_deals').insert({ firm_id: me!.firmId, employee_id: me!.id, text: t, price: p });
+        ? await supabase.from('supply_requests').insert({ ...row, shop_id: shopId, price_hint: p })
+        : await supabase.from('supplier_deals').insert({ ...row, firm_id: me!.firmId, employee_id: me!.id, price: p });
     if (error) return setMsg(error.message);
     setText('');
     setPrice('');
+    setQty('');
     setMsg(null);
     setTab(postKind); // ցույց տալ հենց հրապարակվածը
     load();
@@ -102,30 +107,47 @@ export default function LiveMarket() {
       </View>
       {canPost ? (
         <View style={{ gap: 8, marginBottom: 12 }}>
+          <Text style={styles.strong}>{postKind === 'wants' ? '📣 Ի՞նչ ապրանք եք փնտրում' : '💼 Ի՞նչ եք առաջարկում'}</Text>
           <TextInput
             importantForAutofill="no"
-            accessibilityLabel={postKind === 'wants' ? 'Ինչ է ձեզ պետք' : 'Ինչ եք առաջարկում'}
-            placeholder={postKind === 'wants' ? '📣 Ի՞նչ է ձեզ պետք' : '💼 Ի՞նչ եք առաջարկում'}
+            accessibilityLabel={postKind === 'wants' ? 'Ինչ ապրանք եք փնտրում' : 'Ինչ եք առաջարկում'}
+            placeholder={postKind === 'wants' ? 'Օր.՝ Ձու C0' : 'Օր.՝ Ձու C0 թարմ, առաքում ամեն օր'}
+            placeholderTextColor={colors.textMuted}
             value={text}
             onChangeText={setText}
-            returnKeyType="send"
-            onSubmitEditing={post}
             style={input}
           />
           {text.trim() ? (
-            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-              <TextInput
-                importantForAutofill="no"
-                accessibilityLabel="Գին"
-                placeholder={postKind === 'wants' ? 'Ցանկալի գինը ֏ (ըստ ցանկության)' : 'Գինը ֏ (ըստ ցանկության)'}
-                value={price}
-                onChangeText={(v) => setPrice(v.replace(/\D/g, ''))}
-                keyboardType="number-pad"
-                style={[input, { flex: 1, borderWidth: 1, borderColor: colors.borderStrong, minHeight: 46 }]}
-              />
-              <Button label="Հրապարակել" onPress={post} />
-            </View>
+            <>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TextInput
+                  importantForAutofill="no"
+                  accessibilityLabel="Քանակ"
+                  placeholder="Քանակ"
+                  placeholderTextColor={colors.textMuted}
+                  value={qty}
+                  onChangeText={(v) => setQty(v.replace(/[^\d.,]/g, ''))}
+                  keyboardType="decimal-pad"
+                  style={[input, { flex: 1, borderWidth: 1, borderColor: colors.borderStrong, minHeight: 46 }]}
+                />
+                <TextInput
+                  importantForAutofill="no"
+                  accessibilityLabel="Գին"
+                  placeholder={`Գին, ֏/${unit} (ըստ ցանկ.)`}
+                  placeholderTextColor={colors.textMuted}
+                  value={price}
+                  onChangeText={(v) => setPrice(v.replace(/\D/g, ''))}
+                  keyboardType="number-pad"
+                  style={[input, { flex: 1.4, borderWidth: 1, borderColor: colors.borderStrong, minHeight: 46 }]}
+                />
+              </View>
+              <Chips options={units.map((u) => ({ value: u, label: u }))} value={unit} onChange={setUnit} />
+              <Button label={postKind === 'wants' ? '🔎 Գտնել մատակարար' : '📣 Առաջարկել շուկային'} onPress={post} />
+            </>
           ) : null}
+          {msg ? <Text style={{ color: colors.warnText }}>{msg}</Text> : null}
+        </View>
+      ) : null}
       <View style={{ marginBottom: 10 }}>
         <Chips
           options={[
@@ -137,10 +159,6 @@ export default function LiveMarket() {
         />
       </View>
 
-          {msg ? <Text style={{ color: colors.warnText }}>{msg}</Text> : null}
-        </View>
-      ) : null}
-
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 10, paddingBottom: 24 }}>
         {tab === 'wants' ? (
           <>
@@ -151,17 +169,26 @@ export default function LiveMarket() {
                   <Text style={[styles.strong, { flex: 1, fontSize: 16 }]}>🛒 {r.text}</Text>
                   <Text style={styles.muted}>{ago(r.created_at)}</Text>
                 </View>
+                {amountLine(r.qty, r.unit, r.price_hint, 'ցանկալի՝ ') ? <Text style={styles.body}>{amountLine(r.qty, r.unit, r.price_hint, 'ցանկալի՝ ')}</Text> : null}
                 <Text style={styles.muted}>
                   {[r.shop_name, r.district, r.category].filter(Boolean).join(' · ')}
-                  {r.price_hint ? ` · ցանկալի գինը՝ ${formatAmd(Number(r.price_hint))}` : ''}
+                  {me && r.blocked ? ' · ⛔ ձեր սև ցուցակում է' : ''}
                 </Text>
-                {r.offers ? <Pill text={`${r.offers} առաջարկ`} tone="info" /> : null}
                 {r.mine ? (
-                  <Pressable accessibilityRole="button" onPress={() => router.push('/shop/requests')} hitSlop={8}>
-                    <Text style={{ color: colors.primary, fontWeight: '600' }}>Ձեր հարցումն է · տեսնել առաջարկները →</Text>
+                  // Առաջարկները գնում են անձնական չաթ, այստեղ՝ միայն քանակը
+                  <Pressable accessibilityRole="button" onPress={() => router.push(r.offers ? '/chats' : '/shop/requests')} hitSlop={8}>
+                    <Text style={{ color: colors.primary, fontWeight: '600' }}>
+                      {r.offers ? `💼 Ստացել է ${r.offers} առաջարկ · 💬 չաթում →` : 'Ձեր հարցումն է · դեռ առաջարկ չկա'}
+                    </Text>
+                  </Pressable>
+                ) : r.offers ? (
+                  <Pill text={`💼 ${r.offers} առաջարկ`} tone="info" />
+                ) : null}
+                {me && r.my_offer ? (
+                  <Pressable accessibilityRole="button" onPress={() => router.push('/chats')} hitSlop={8}>
+                    <Text style={{ color: colors.primary, fontWeight: '600' }}>✓ Ձեր առաջարկը ուղարկված է · 💬 չաթ →</Text>
                   </Pressable>
                 ) : null}
-                {me && r.my_offer ? <Pill text="✓ Ձեր առաջարկը ուղարկված է" /> : null}
                 {me && !r.my_offer ? (
                   offerFor === r.id ? (
                     <View style={{ gap: 8 }}>
@@ -169,6 +196,7 @@ export default function LiveMarket() {
                         importantForAutofill="no"
                         accessibilityLabel="Ձեր առաջարկը"
                         placeholder="Ձեր առաջարկը (օր.՝ Ունենք, առաքում վաղը)"
+                        placeholderTextColor={colors.textMuted}
                         value={offerText}
                         onChangeText={setOfferText}
                         multiline
@@ -179,6 +207,7 @@ export default function LiveMarket() {
                           importantForAutofill="no"
                           accessibilityLabel="Առաջարկի գինը"
                           placeholder="Գին ֏ (ըստ ցանկ.)"
+                          placeholderTextColor={colors.textMuted}
                           value={offerPrice}
                           onChangeText={(v) => setOfferPrice(v.replace(/\D/g, ''))}
                           keyboardType="number-pad"
@@ -226,14 +255,17 @@ export default function LiveMarket() {
                       <Text style={styles.strong}>{d.firm_name}</Text>
                       <Text style={styles.muted}>{[d.category, ago(d.created_at)].filter(Boolean).join(' · ')}</Text>
                     </View>
-                    {d.price ? <Text style={{ fontSize: 17, fontWeight: '700', color: colors.text }}>{formatAmd(Number(d.price))}</Text> : null}
+                    {d.price ? <Text style={{ fontSize: 17, fontWeight: '700', color: colors.text }}>{formatAmd(Number(d.price))}{d.unit ? `/${d.unit}` : ''}</Text> : null}
                   </View>
                   <Text style={[styles.body, { fontSize: 16 }]}>💼 {d.text}</Text>
+                  {d.qty ? <Text style={styles.muted}>{Number(d.qty)} {d.unit ?? ''}</Text> : null}
                   {isShop ? (
                     <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
                       {d.interested ? (
                         <View style={{ flex: 1 }}>
-                          <Pill text="✓ Մատակարարը կկապվի ձեզ հետ" />
+                          <Pressable accessibilityRole="button" onPress={() => router.push('/chats')} hitSlop={8}>
+                            <Text style={{ color: colors.primary, fontWeight: '600' }}>✓ Գրել եք մատակարարին · 💬 չաթ →</Text>
+                          </Pressable>
                         </View>
                       ) : (
                         <Button
@@ -303,4 +335,10 @@ export default function LiveMarket() {
       </ScrollView>
     </Screen>
   );
+}
+
+const units = ['հատ', 'կգ', 'լ', 'տուփ', 'արկղ', 'բլոկ'];
+/** «300 հատ · 60 ֏/հատ» */
+function amountLine(qty: number | null, unit: string | null, price: number | null, priceLabel = '') {
+  return [qty ? `${Number(qty)} ${unit ?? ''}`.trim() : null, price ? `${priceLabel}${formatAmd(Number(price))}${unit ? `/${unit}` : ''}` : null].filter(Boolean).join(' · ');
 }

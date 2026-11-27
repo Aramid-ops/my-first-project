@@ -78,7 +78,24 @@ export interface ShopFirmLink {
   lineId?: string;
   discountPct?: number;
   creditLimit?: number;
+  /** ⛔ Սև ցուցակ. խանութը չի կարող պատվիրել (պատճառը՝ link_block_notes, տեսնում է միայն ֆիրման) */
+  blocked?: boolean;
+  /** Ով է սկսել կապը. խանութը (հայտ) կամ ֆիրման («🤝 Առաջարկել համագործակցություն») */
+  initiatedBy?: 'shop' | 'firm';
 }
+
+/** Թույլտվություններ (🔐), տե՛ս SPEC §29 */
+export type Perm = 'shops_new' | 'shop_terms' | 'blacklist' | 'lines' | 'products' | 'invite' | 'payments_view' | 'payments_confirm';
+export const permLabel: Record<Perm, string> = {
+  shops_new: '🤝 Նոր խանութներ, հայտերի ընդունում',
+  shop_terms: '⚙️ Խանութների պայմաններ (զեղչ, սահմանաչափ)',
+  blacklist: '⛔ Սև ցուցակ',
+  lines: '🚚 Գծեր, առաքման օրեր, վերջնաժամ',
+  products: '📦 Ապրանքներ և գներ',
+  invite: '👥 Աշխատողների հրավեր',
+  payments_view: '📨 Վճարումներ տեսնել, փոխանցել հաշվապահին',
+  payments_confirm: '💳 Վճարման վերջնական հաստատում',
+};
 
 export interface DriverProfile {
   name: string;

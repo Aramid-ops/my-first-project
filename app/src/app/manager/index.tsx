@@ -41,7 +41,8 @@ export default function Inbox() {
   const done = isManager
     ? s.orders.filter((o) => o.managerId === me.id && !open(o.status))
     : s.orders.filter((o) => o.assigneeId !== me.id && o.events.some((ev) => ev.byName === me.name));
-  const requests = s.links.filter((l) => l.firmId === me.firmId && l.status === 'pending');
+  // խանութների հայտերը (ոչ մեր ուղարկած «🤝 համագործակցության» առաջարկները)
+  const requests = s.links.filter((l) => l.firmId === me.firmId && l.status === 'pending' && l.initiatedBy !== 'firm');
   const myLinks = s.links.filter((l) => l.managerId === me.id && l.status === 'active');
   // Մենեջերը՝ իր խանութների վճարումները, ներքին աշխատողը (հաշվապահ)՝ ֆիրմայի բոլորը
   const pendingPayments = s.payments.filter(
@@ -56,11 +57,11 @@ export default function Inbox() {
         { value: 'orders', label: 'Պատվերներ', hint: `${waiting.length + textOrders.length}` },
         { value: 'requests', label: 'Հայտեր', hint: requests.length ? `${requests.length}` : undefined },
         { value: 'shops', label: 'Իմ խանութները' },
-        { value: 'payments', label: 'Վճարումներ', hint: pendingPayments.length ? `${pendingPayments.length}` : undefined },
+        ...(s.perms.includes('payments_view') ? [{ value: 'payments' as Tab, label: 'Վճարումներ', hint: pendingPayments.length ? `${pendingPayments.length}` : undefined }] : []),
       ]
     : [
         { value: 'orders', label: 'Պատվերներ', hint: `${waiting.length}` },
-        { value: 'payments', label: 'Վճարումներ', hint: pendingPayments.length ? `${pendingPayments.length}` : undefined },
+        ...(s.perms.includes('payments_view') ? [{ value: 'payments' as Tab, label: 'Վճարումներ', hint: pendingPayments.length ? `${pendingPayments.length}` : undefined }] : []),
       ];
 
   return (
@@ -89,7 +90,7 @@ export default function Inbox() {
             <Text style={{ color: colors.primary, fontWeight: '600' }}><Text style={{ color: '#2E9E5B' }}>●</Text> Live շուկա. խանութները ուզում են →</Text>
           </Pressable>
         ) : null}
-        {me.role === 'staff' || (isManager && firm.status === 'unclaimed') ? (
+        {s.perms.includes('products') ? (
           <Pressable accessibilityRole="button" onPress={() => router.push('/firm/products')} hitSlop={8}>
             <Text style={{ color: colors.primary, fontWeight: '600' }}>Ապրանքներ և գներ →</Text>
           </Pressable>
@@ -187,7 +188,7 @@ export default function Inbox() {
               })}
             </View>
             <Button kind="dark" label="🏪 Բոլոր խանութները (նոր հաճախորդներ)" onPress={() => router.push('/firm/shops')} />
-            <Button kind="outline" label="⚙️ Գծեր, առաքման օրեր և վերջնաժամ" onPress={() => router.push('/firm/lines')} />
+            {s.perms.includes('lines') ? <Button kind="outline" label="⚙️ Գծեր, առաքման օրեր և վերջնաժամ" onPress={() => router.push('/firm/lines')} /> : null}
           </View>
         ) : null}
         {tab === 'shops'
@@ -268,7 +269,7 @@ function OrderCard({ order: o, action, withInvoice }: { order: Order; action: Re
 }
 
 function JoinRequest({ shopId }: { shopId: string }) {
-  const { shops, lines, session, employees, acceptRequest } = useStore();
+  const { shops, lines, session, employees, perms, acceptRequest } = useStore();
   const [line, setLine] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const shop = shops.find((x) => x.id === shopId);
@@ -287,7 +288,11 @@ function JoinRequest({ shopId }: { shopId: string }) {
       <Text style={styles.muted}>Գիծ՝</Text>
       <Chips options={lines.filter((x) => x.firmId === me?.firmId).map((x) => ({ value: x.id, label: x.name }))} value={line} onChange={setLine} />
       {err ? <Text style={{ color: colors.warnText }}>{err}</Text> : null}
-      <Button label="Ընդունել" onPress={async () => setErr(await acceptRequest(shopId, line))} />
+      {perms.includes('shops_new') ? (
+        <Button label="Ընդունել" onPress={async () => setErr(await acceptRequest(shopId, line))} />
+      ) : (
+        <Text style={styles.muted}>Հայտը կընդունի ղեկավարը կամ թույլտվություն ունեցող աշխատողը</Text>
+      )}
     </View>
   );
 }

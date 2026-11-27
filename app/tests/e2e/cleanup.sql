@@ -3,3 +3,4 @@ delete from firms where id in (select firm_id from employees e join auth.users u
 delete from employees where user_id in (select id from auth.users where email like 't-%@demo.matakarar.com');
 delete from employees where invite_code is not null and name like 'Թեստ%';
 delete from auth.users where email like 't-%@demo.matakarar.com';
+delete from supply_requests where shop_id in (select id from shops where name like 'Թեստ խանութ%');

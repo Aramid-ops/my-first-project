@@ -8,11 +8,13 @@ import { useStore } from '@/lib/store';
 import { Screen, Title } from '@/lib/ui';
 
 export default function ManagerLines() {
-  const { session, employees, links, lines, firms } = useStore();
+  const { session, employees, links, lines, firms, perms } = useStore();
   const me = session?.kind === 'employee' ? employees.find((e) => e.id === session.employeeId) : undefined;
   if (!me) return <Redirect href="/" />;
   const hasAdmin = firmHasAdmin(employees, firms.find((f) => f.id === me.firmId));
-  const mine = lines.filter((l) => l.firmId === me.firmId && (!hasAdmin || links.some((x) => x.lineId === l.id && x.managerId === me.id)));
+  // մենեջերը տեսնում է բոլոր գծերը, խանութների ցուցակում՝ միայն իրենները (ներքին աշխատողը՝ բոլորը)
+  const mine = lines.filter((l) => l.firmId === me.firmId);
+  const shopIds = links.filter((x) => x.firmId === me.firmId && x.status === 'active' && (me.role !== 'manager' || !hasAdmin || x.managerId === me.id)).map((x) => x.shopId);
   return (
     <Screen>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -23,8 +25,7 @@ export default function ManagerLines() {
       </View>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 10, paddingBottom: 32 }}>
         <LinesExplainer />
-        {hasAdmin && mine.length === 0 ? <Text>Ձեր խանութները դեռ գծի վրա չեն։ Գիծը ընտրեք խանութի «⚙️ Քարտ»-ում։</Text> : null}
-        <LinesEditor lines={mine} firmId={me.firmId} canCreate={!hasAdmin} />
+        <LinesEditor lines={mine} firmId={me.firmId} canCreate={perms.includes('lines')} shopIds={shopIds} />
       </ScrollView>
     </Screen>
   );

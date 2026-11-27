@@ -9,7 +9,7 @@ import { matches } from '@/lib/search';
 import { useStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { colors, radius } from '@/lib/theme';
-import { Chips, Pill, Screen, styles, Title } from '@/lib/ui';
+import { Button, Chips, Pill, Screen, styles, Title } from '@/lib/ui';
 
 type Row = { id: string; name: string; district: string | null; address: string | null; phone: string | null; contact_person: string | null; distance_km: number | null; is_client: boolean };
 /** «Ով է գնում»՝ ծավալը միայն միջակայքով, առանց մատակարարի և գնի */
@@ -24,7 +24,8 @@ const statusLabel = {
 };
 
 export default function AllShops() {
-  const { session } = useStore();
+  const { session, perms, offerPartnership, links } = useStore();
+  const [sent, setSent] = useState<Record<string, string>>({});
   const [rows, setRows] = useState<Row[] | null>(null);
   const [q, setQ] = useState('');
   const [district, setDistrict] = useState('all');
@@ -129,6 +130,17 @@ export default function AllShops() {
               <Pressable accessibilityRole="button" onPress={() => Linking.openURL(`tel:${r.phone}`)} hitSlop={8}>
                 <Text style={{ color: colors.primary, fontWeight: '600' }}>📞 {r.phone}</Text>
               </Pressable>
+            ) : null}
+            {!r.is_client && perms.includes('shops_new') ? (
+              links.some((l) => l.shopId === r.id) || sent[r.id] ? (
+                <Text style={styles.muted}>{sent[r.id] ?? 'Առաջարկը / հայտը սպասում է'}</Text>
+              ) : (
+                <Button
+                  kind="outline"
+                  label="🤝 Առաջարկել համագործակցություն"
+                  onPress={async () => setSent({ ...sent, [r.id]: (await offerPartnership(r.id)) ?? '✓ Առաջարկը ուղարկված է' })}
+                />
+              )
             ) : null}
           </View>
         ))}

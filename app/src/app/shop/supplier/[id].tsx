@@ -17,7 +17,8 @@ export default function SupplierCatalog() {
   const firm = firms.find((f) => f.id === id);
   const link = links.find((l) => l.shopId === session.shopId && l.firmId === id);
   if (!firm || !link) return null;
-  const manager = employees.find((e) => e.id === link.managerId)!;
+  // մենեջեր կարող է դեռ չլինել (ֆիրման աշխատում է առանց մենեջերի)
+  const manager = employees.find((e) => e.id === link.managerId);
   const list = products.filter((p) => p.firmId === firm.id && (matches(`${p.name} ${p.packNote ?? ''}`, filter) || (p.sku ?? '').toLowerCase().startsWith(filter.trim().toLowerCase())));
   const inCart = Object.keys(cart).length;
 
@@ -31,21 +32,26 @@ export default function SupplierCatalog() {
         <View style={{ flex: 1 }}>
           <Text style={[styles.strong, { fontSize: 18 }]}>{firm.name}</Text>
           <Text style={styles.muted}>
-            {manager.name} · առաքում՝ {deliveryLabel(deliveryDate(link))}
+            {manager ? `${manager.name} · ` : ''}առաքում՝ {deliveryLabel(deliveryDate(link))}
             {cutoffOf(link) ? ` · պատվիրեք ${orderDeadlineLabel(deliveryDate(link), cutoffOf(link))}` : ''}
           </Text>
         </View>
-        {manager.phone ? (
+        {manager?.phone ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`Զանգել մենեջերին (${manager.name})`}
-            onPress={() => Linking.openURL(`tel:${manager.phone}`)}
+            accessibilityLabel={`Զանգել մենեջերին (${manager?.name})`}
+            onPress={() => Linking.openURL(`tel:${manager?.phone}`)}
             style={[backBtn, { backgroundColor: colors.primarySoft, borderColor: colors.primarySoft }]}>
             <Text style={{ fontSize: 16 }}>📞</Text>
           </Pressable>
         ) : null}
       </View>
 
+      {link.blocked ? (
+        <View style={{ backgroundColor: '#FBF3EC', borderColor: '#F1D9C6', borderWidth: 1, borderRadius: radius.md, padding: 12, marginBottom: 10 }}>
+          <Text style={{ color: colors.warnText }}>Այս մատակարարից պատվերը ժամանակավորապես անհասանելի է. կապվեք մենեջերի հետ։</Text>
+        </View>
+      ) : null}
       <TextInput importantForAutofill="no"
         value={filter}
         onChangeText={setFilter}

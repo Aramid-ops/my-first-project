@@ -1,7 +1,7 @@
 // Հավելվածի վիճակի տիպերը (store.tsx-ի և actions/*-ի ընդհանուր մասը)։
 import type { Dispatch, SetStateAction } from 'react';
 
-import type { PaymentMethod } from './types';
+import type { PaymentMethod, Perm } from './types';
 import type { Debt, DriverProfile, Employee, EmployeeRole, Firm, Issue, IssueKind, Line, Order, Payment, Product, SavedList, Shop, ShopFirmLink, Team, TextOrder } from './types';
 
 export type Session =
@@ -29,6 +29,8 @@ export interface Data {
   savedLists: SavedList[];
   driverProfile: DriverProfile | null;
   isPlatformAdmin: boolean;
+  /** Իմ թույլտվությունները (աշխատողի համար) */
+  perms: Perm[];
   /** Խանութի անհատական գները՝ ըստ ապրանքի */
   prices: Record<string, number>;
 }
@@ -79,6 +81,7 @@ export interface ShopActions {
   requestJoin: (firmId: string) => Result;
   updateShop: (patch: Record<string, unknown>) => Result;
   markPaid: (firmId: string, amount: number, note: string, method: PaymentMethod, receiptPath?: string) => Result;
+  answerPartnership: (firmId: string, accept: boolean) => Result;
   /** Գրված կամ թելադրված պատվեր՝ մենեջերին */
   sendTextOrder: (firmId: string, text: string) => Result;
 }
@@ -92,10 +95,11 @@ export interface FirmActions {
   setLinkTerms: (shopId: string, firmId: string, discountPct: number, creditLimit: number | null) => Result;
   setLinkLine: (shopId: string, firmId: string, lineId: string | null) => Result;
   setLinkManager: (shopId: string, firmId: string, managerId: string) => Result;
+  setLinkBlocked: (shopId: string, firmId: string, blocked: boolean, reason: string | null) => Result;
+  offerPartnership: (shopId: string) => Result;
   setLineDriver: (lineId: string, driverId: string | null) => Result;
   setLineCutoff: (lineId: string, cutoff: string | null) => Result;
   setLineReminder: (lineId: string, minutes: number | null) => Result;
-  setEmployeePermission: (employeeId: string, canConfirmPayments: boolean) => Result;
   forwardPayment: (paymentId: string, toEmployeeId: string) => Result;
   markVerificationPaid: () => Result;
   toggleTeamMember: (teamId: string, employeeId: string) => Result;

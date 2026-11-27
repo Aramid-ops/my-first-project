@@ -31,7 +31,7 @@ const tab = async (p, t) => { await p.getByText(t, { exact: true }).filter({ vis
   await a.close(); a = await login(b, 't-boss@demo.matakarar.com');
   // 1. Գծեր. փոխելուց հետո հերթականությունը նույնն է
   await tab(a, 'Գծեր');
-  const order = async () => (await a.getByText(/^(Ա|Բ) գիծ · /).allInnerTexts()).map((t) => t[0]).join('');
+  const order = async () => (await a.getByText(/^(Ա|Բ) գիծ$/).allInnerTexts()).map((t) => t[0]).join('');
   const before = await order();
   await a.getByLabel('Պատվերի վերջնաժամ (ժժ:րր)').first().fill('0530');
   await a.getByText('Պահել', { exact: true }).filter({ visible: true }).first().click(); await a.waitForTimeout(2500);
@@ -45,7 +45,7 @@ const tab = async (p, t) => { await p.getByText(t, { exact: true }).filter({ vis
   await a.getByLabel('Հեռախոս').fill('+374 77 123456');
   await a.getByText('Ստանալ հրավերի կոդ').click(); await a.waitForTimeout(2500);
   ok('2. կոդը ուղարկելու կոճակներ', (await a.getByText('WhatsApp', { exact: true }).count()) === 1 && (await a.getByText('SMS', { exact: true }).count()) === 1);
-  ok('6. «Հաստատում է վճարումներ» անջատիչ', (await a.getByText('💳 Հաստատում է վճարումներ').count()) >= 1);
+  ok('6. «🔐 Թույլտվություններ» կոճակը (վճարումների հաստատումը՝ այնտեղ)', (await a.getByText(/🔐 Թույլտվություններ/).count()) >= 1);
   await a.screenshot({ path: S + '/r2-invite.png' });
   // 4. Խանութներ ըստ թաղամասերի → քարտ → զեղչ
   await tab(a, 'Խանութներ');

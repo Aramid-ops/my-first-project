@@ -93,7 +93,12 @@ export default function SupplyRequests() {
                     {o.price ? <Text style={styles.strong}>{formatAmd(Number(o.price))}</Text> : null}
                   </View>
                   <Text style={styles.body}>{o.text}</Text>
-                  <Text style={{ color: colors.primary, fontWeight: '600' }}>{linked ? 'Պատվիրել →' : 'Դիտել և միանալ →'}</Text>
+                  <View style={{ flexDirection: 'row', gap: 16 }}>
+                    <Pressable accessibilityRole="button" onPress={() => router.push('/chats')} hitSlop={8}>
+                      <Text style={{ color: colors.primary, fontWeight: '600' }}>💬 Չաթ</Text>
+                    </Pressable>
+                    <Text style={{ color: colors.primary, fontWeight: '600' }}>{linked ? 'Պատվիրել →' : 'Դիտել և միանալ →'}</Text>
+                  </View>
                 </Pressable>
               );
             })}

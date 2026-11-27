@@ -1,7 +1,7 @@
 // Գծեր (առաքման ուղղություններ). օրեր, վարորդ, պատվերի վերջնաժամ, հիշեցում։
 // Օգտագործում են ղեկավարը (բոլոր գծերը) և մենեջերը (իր խանութների գծերը / բոլորը, եթե ֆիրման ղեկավար չունի)։
 import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, Text, View } from 'react-native';
 
 import { useStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
@@ -34,11 +34,21 @@ export function LinesExplainer() {
   );
 }
 
-export function LinesEditor({ lines, firmId, canCreate }: { lines: Line[]; firmId: string; canCreate: boolean }) {
-  const { employees, links, setLineDriver, setLineCutoff, setLineReminder, reload } = useStore();
+/** Հաստատում (վեբում՝ confirm, հեռախոսում՝ Alert) */
+function confirm(question: string, onYes: () => void) {
+  if (Platform.OS === 'web') {
+    if (window.confirm(question)) onYes();
+  } else Alert.alert(question, undefined, [{ text: 'Ոչ', style: 'cancel' }, { text: 'Այո', style: 'destructive', onPress: onYes }]);
+}
+
+/** `shopIds`՝ որ խանութները կարող է դնել գծի վրա (ղեկավար՝ բոլորը, մենեջեր՝ իրենը) */
+export function LinesEditor({ lines, firmId, canCreate, shopIds }: { lines: Line[]; firmId: string; canCreate: boolean; shopIds: string[] }) {
+  const { employees, links, shops, setLineDriver, setLineCutoff, setLineReminder, setLinkLine, reload } = useStore();
   const [times, setTimes] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
+  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
+  const [shopsOf, setShopsOf] = useState<string | null>(null);
   const drivers = employees.filter((e) => e.firmId === firmId && e.role === 'driver');
   const update = async (id: string, patch: Record<string, unknown>) => {
     const { error } = await supabase.from('lines').update(patch).eq('id', id);
@@ -49,13 +59,83 @@ export function LinesEditor({ lines, firmId, canCreate }: { lines: Line[]; firmI
   return (
     <View style={{ gap: 10 }}>
       {msg ? <Text style={{ color: colors.warnText }}>{msg}</Text> : null}
+      {canCreate ? (
+        <Card style={{ gap: 8 }}>
+          <Field label="➕ Նոր գիծ (օր.՝ Ավան)" value={newName} onChangeText={setNewName} autoComplete="off" />
+          <Button
+            label="+ Ավելացնել գիծ"
+            disabled={!newName.trim()}
+            onPress={async () => {
+              const { error } = await supabase.from('lines').insert({ firm_id: firmId, name: newName.trim(), delivery_days: [] });
+              setMsg(error?.message ?? null);
+              if (!error) setNewName('');
+              reload();
+            }}
+          />
+        </Card>
+      ) : null}
       {lines.map((l) => {
         const t = times[l.id] ?? l.orderCutoff ?? '';
         return (
           <Card key={l.id} style={{ gap: 8 }}>
-            <Text style={styles.strong}>
-              {l.name} · {links.filter((x) => x.lineId === l.id && x.status === 'active').length} խանութ
-            </Text>
+            {renaming?.id === l.id ? (
+              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-end' }}>
+                <View style={{ flex: 1 }}>
+                  <Field label="Գծի անունը" value={renaming.name} onChangeText={(v) => setRenaming({ id: l.id, name: v })} autoComplete="off" />
+                </View>
+                <Button label="Պահել" disabled={!renaming.name.trim()} onPress={async () => { await update(l.id, { name: renaming.name.trim() }); setRenaming(null); }} />
+              </View>
+            ) : (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                <Text style={[styles.strong, { flex: 1 }]}>{l.name}</Text>
+                {canCreate ? (
+                  <>
+                    <Pressable accessibilityRole="button" accessibilityLabel="Փոխել անունը" onPress={() => setRenaming({ id: l.id, name: l.name })} hitSlop={8}>
+                      <Text style={{ fontSize: 18 }}>✏️</Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Ջնջել գիծը"
+                      hitSlop={8}
+                      onPress={() =>
+                        confirm(`Ջնջե՞լ «${l.name}» գիծը։ Նրա խանութները կմնան առանց գծի։`, async () => {
+                          const { error } = await supabase.from('lines').delete().eq('id', l.id);
+                          setMsg(error?.message ?? null);
+                          reload();
+                        })
+                      }>
+                      <Text style={{ fontSize: 18 }}>🗑</Text>
+                    </Pressable>
+                  </>
+                ) : null}
+              </View>
+            )}
+            {/* Խանութները այս գծի վրա. նշել / հանել */}
+            <Pressable accessibilityRole="button" onPress={() => setShopsOf(shopsOf === l.id ? null : l.id)} hitSlop={6}>
+              <Text style={{ color: colors.primary, fontWeight: '600' }}>
+                🏪 Խանութներ ({links.filter((x) => x.lineId === l.id && x.status === 'active').length}) {shopsOf === l.id ? '▴' : '▾'}
+              </Text>
+            </Pressable>
+            {shopsOf === l.id
+              ? links
+                  .filter((x) => x.firmId === firmId && x.status === 'active' && shopIds.includes(x.shopId))
+                  .map((x) => {
+                    const on = x.lineId === l.id;
+                    const other = !on && x.lineId ? lines.find((y) => y.id === x.lineId)?.name : null;
+                    return (
+                      <Pressable
+                        key={x.shopId}
+                        accessibilityRole="checkbox"
+                        accessibilityState={{ checked: on }}
+                        onPress={() => setLinkLine(x.shopId, firmId, on ? null : l.id)}
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 }}>
+                        <Text style={{ fontSize: 18 }}>{on ? '☑' : '☐'}</Text>
+                        <Text style={[styles.body, { flex: 1 }]}>{shops.find((sh) => sh.id === x.shopId)?.name}</Text>
+                        {other ? <Text style={styles.muted}>{other}</Text> : null}
+                      </Pressable>
+                    );
+                  })
+              : null}
             <Text style={styles.muted}>Առաքման օրեր{l.deliveryDays.length === 0 ? ' (ոչ մեկը նշված չէ՝ ամեն օր)' : ''}</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
               {days.map(({ d, label }) => {
@@ -97,22 +177,6 @@ export function LinesEditor({ lines, firmId, canCreate }: { lines: Line[]; firmI
           </Card>
         );
       })}
-      {canCreate ? (
-        <Card style={{ gap: 8 }}>
-          <Field label="Նոր գիծ (օր.՝ Ավան)" value={newName} onChangeText={setNewName} autoComplete="off" />
-          <Button
-            kind="outline"
-            label="+ Ավելացնել գիծ"
-            disabled={!newName.trim()}
-            onPress={async () => {
-              const { error } = await supabase.from('lines').insert({ firm_id: firmId, name: newName.trim(), delivery_days: [] });
-              setMsg(error?.message ?? null);
-              if (!error) setNewName('');
-              reload();
-            }}
-          />
-        </Card>
-      ) : null}
     </View>
   );
 }

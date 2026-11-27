@@ -23,6 +23,7 @@ export const emptyData: Data = {
   driverProfile: null,
   isPlatformAdmin: false,
   prices: {},
+  perms: [],
 };
 
 const cacheKey = (uid: string) => `snapshot:${uid}`;
@@ -96,9 +97,13 @@ export async function loadData(uid: string): Promise<Data | null> {
     debts: ((dbt.data ?? []) as unknown[]).map(mapDebt),
     payments: (pay.data ?? []).map(mapPayment),
     isPlatformAdmin: !!pa.data,
+    perms: [],
     driverProfile: dp.data ? mapDriverProfile(dp.data) : null,
     prices: {},
   };
+
+  // Աշխատողի համար՝ իր թույլտվությունները (կոճակները ցույց տալու համար. բազան էլ է ստուգում)
+  if (session.kind === 'employee') data.perms = ((await supabase.rpc('my_permissions')).data ?? []) as Data['perms'];
 
   // Խանութի համար՝ իր գները և պահված ցուցակները
   if (session.kind === 'shop') {

@@ -44,10 +44,18 @@ export function firmActions(c: ActionCtx): FirmActions {
     setLinkTerms: (shopId, firmId, discountPct, creditLimit) => link(shopId, firmId, { discount_pct: discountPct, credit_limit: creditLimit }),
     setLinkLine: (shopId, firmId, lineId) => link(shopId, firmId, { line_id: lineId }),
     setLinkManager: (shopId, firmId, managerId) => link(shopId, firmId, { manager_id: managerId }),
+    setLinkBlocked: async (shopId, firmId, blocked, reason) => {
+      // պատճառը՝ առանձին աղյուսակում, որ խանութը չտեսնի
+      const note = blocked
+        ? await supabase.from('link_block_notes').upsert({ shop_id: shopId, firm_id: firmId, reason: reason ?? '' })
+        : await supabase.from('link_block_notes').delete().eq('shop_id', shopId).eq('firm_id', firmId);
+      if (note.error) return note.error.message;
+      return link(shopId, firmId, { blocked });
+    },
+    offerPartnership: (shopId) => run(c, supabase.rpc('offer_partnership', { p_shop: shopId })),
     setLineDriver: (lineId, driverId) => line(lineId, { driver_id: driverId }),
     setLineCutoff: (lineId, cutoff) => line(lineId, { order_cutoff: cutoff }),
     setLineReminder: (lineId, minutes) => line(lineId, { reminder_minutes: minutes }),
-    setEmployeePermission: (employeeId, can) => run(c, supabase.from('employees').update({ can_confirm_payments: can }).eq('id', employeeId)),
     forwardPayment: (paymentId, to) => run(c, supabase.rpc('forward_payment', { p_payment: paymentId, p_to: to })),
     markVerificationPaid: () => run(c, supabase.rpc('mark_verification_paid')),
     finishTextOrder: (id) => run(c, supabase.rpc('finish_text_order', { p_id: id })),

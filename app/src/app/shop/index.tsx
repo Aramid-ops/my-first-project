@@ -10,7 +10,7 @@ import { deliveryLabel, formatAmd } from '@/lib/rules';
 import { useStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { colors, radius } from '@/lib/theme';
-import { Logo, Screen, styles, Title } from '@/lib/ui';
+import { Button, Logo, Screen, styles, Title } from '@/lib/ui';
 
 type Ext = { id: string; name: string; category: string | null; channel: string };
 const channelName: Record<string, string> = { whatsapp: 'WhatsApp', viber: 'Viber', sms: 'SMS' };
@@ -49,7 +49,7 @@ function Tile({ icon, title, sub, badge, dark, onPress }: { icon: string; title:
 }
 
 export default function ShopHome() {
-  const { session, shops, links, firms, employees, cart, orders, debts, deliveryDate } = useStore();
+  const { session, shops, links, firms, employees, cart, orders, debts, deliveryDate, answerPartnership } = useStore();
   const [ext, setExt] = useState<Ext[]>([]);
   const [liveNew, setLiveNew] = useState(0);
   // Հավելվածից դուրս մատակարարներ և Live շուկայի թարմ առաջարկներ՝ ամեն անգամ էջ վերադառնալիս
@@ -66,7 +66,9 @@ export default function ShopHome() {
   if (!shop) return <Redirect href="/" />;
 
   const myLinks = links.filter((l) => l.shopId === shop.id && l.status === 'active');
-  const pending = links.filter((l) => l.shopId === shop.id && l.status === 'pending');
+  const pending = links.filter((l) => l.shopId === shop.id && l.status === 'pending' && l.initiatedBy !== 'firm');
+  // «🤝 X-ը ցանկանում է լինել ձեր մատակարարը»
+  const offers = links.filter((l) => l.shopId === shop.id && l.status === 'pending' && l.initiatedBy === 'firm');
   const today = new Date().toISOString().slice(0, 10);
   const featured = firms.filter((f) => f.featuredUntil && f.featuredUntil >= today && !myLinks.some((l) => l.firmId === f.id));
   const cartCount = Object.keys(cart).length;
@@ -100,6 +102,21 @@ export default function ShopHome() {
             Ի՞նչ եք փնտրում (օր.՝ ձու, կաթ)
           </Text>
         </Pressable>
+
+        {offers.map((l) => {
+          const f = firms.find((x) => x.id === l.firmId);
+          return (
+            <View key={l.firmId} style={[styles.card, { gap: 8, borderColor: colors.primary }]}>
+              <Text style={styles.strong}>🤝 {f?.name}-ը ցանկանում է լինել ձեր մատակարարը</Text>
+              {f?.category ? <Text style={styles.muted}>{f.category}</Text> : null}
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <Button kind="outline" label="Մերժել" onPress={() => answerPartnership(l.firmId, false)} style={{ flex: 1 }} />
+                <Button kind="outline" label="Դիտել" onPress={() => router.push(`/shop/firm/${l.firmId}`)} style={{ flex: 1 }} />
+                <Button label="Ընդունել" onPress={() => answerPartnership(l.firmId, true)} style={{ flex: 1 }} />
+              </View>
+            </View>
+          );
+        })}
 
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
           <Tile icon="📦" title="Պատվերներ" badge={active.length || undefined} sub={onTheWay ? `${onTheWay} ճանապարհին` : active.length ? 'ընթացքում' : 'բոլորը'} onPress={() => router.push('/shop/orders')} />

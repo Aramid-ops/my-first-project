@@ -276,7 +276,7 @@ do $$ begin assert (select count(*) from deal_interested_shops((select id from s
 select pg_temp.as_user('00000000-0000-0000-0000-000000000007');   -- Աթենքի ղեկավար
 update payments set confirmed_at = now() where firm_id = '10000000-0000-0000-0000-000000000001';
 do $$ begin assert (select count(*) from payments where confirmed_at is not null and firm_id = '10000000-0000-0000-0000-000000000001') = 0, 'ղեկավարը առանց թույլտվության չպետք է հաստատեր'; end $$;
-update employees set can_confirm_payments = true where id = '20000000-0000-0000-0000-000000000002';   -- Անին՝ հաշվապահ
+insert into firm_perms values ('10000000-0000-0000-0000-000000000001', 'emp:20000000-0000-0000-0000-000000000002', 'payments_confirm', true);   -- Անին՝ հաշվապահ
 select pg_temp.as_user('00000000-0000-0000-0000-000000000002');   -- Կարեն (մենեջեր, ֆիրման ղեկավար ունի)
 select forward_payment((select id from payments where firm_id = '10000000-0000-0000-0000-000000000001' limit 1), '20000000-0000-0000-0000-000000000002');
 update payments set confirmed_at = now() where firm_id = '10000000-0000-0000-0000-000000000001';
@@ -310,6 +310,83 @@ do $$ begin assert is_firm_admin((select firm_id from employees where user_id = 
 select pg_temp.as_user('00000000-0000-0000-0000-000000000007');   -- Աթենքի ղեկավար (թույլտվություն չունի)
 insert into payments(shop_id, firm_id, amount, confirmed_at) values ('30000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001', 50000, now());
 do $$ begin assert (select confirmed_at from payments where amount = 50000) is null, 'առանց թույլտվության չպետք է լիներ հաստատված'; end $$;
+
+-- 22. Թույլտվություններ. լռելյայն → դեր → մարդ
+select pg_temp.as_user('00000000-0000-0000-0000-000000000002');   -- Կարեն (մենեջեր)
+do $$ begin
+  assert has_perm('shop_terms', '10000000-0000-0000-0000-000000000001'), 'մենեջերը լռելյայն պետք է փոխեր պայմանները';
+  assert not has_perm('products', '10000000-0000-0000-0000-000000000001'), 'մենեջերը լռելյայն չպետք է փոխեր ապրանքները';
+end $$;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000007');   -- ղեկավար
+insert into firm_perms values ('10000000-0000-0000-0000-000000000001', 'role:manager', 'shop_terms', false);
+insert into firm_perms values ('10000000-0000-0000-0000-000000000001', 'emp:20000000-0000-0000-0000-000000000001', 'products', true);
+select pg_temp.as_user('00000000-0000-0000-0000-000000000002');
+do $$ begin
+  assert not has_perm('shop_terms', '10000000-0000-0000-0000-000000000001'), 'ղեկավարը փակեց մենեջերների համար';
+  assert has_perm('products', '10000000-0000-0000-0000-000000000001'), 'ղեկավարը բացեց Կարենի համար';
+end $$;
+update shop_firm_links set discount_pct = 50 where firm_id = '10000000-0000-0000-0000-000000000001';
+do $$ begin assert not exists (select 1 from shop_firm_links where discount_pct = 50), 'առանց թույլտվության զեղչը չպետք է փոխվեր'; end $$;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000003');   -- Անի
+do $$ begin begin insert into firm_perms values ('10000000-0000-0000-0000-000000000001', 'emp:x', 'invite', true); raise exception 'պետք է մերժվեր';
+  exception when insufficient_privilege then null; end; end $$;
+
+-- 23. Սև ցուցակ. խանութը չի կարող պատվիրել
+select pg_temp.as_user('00000000-0000-0000-0000-000000000007');
+update shop_firm_links set blocked = true where shop_id = '30000000-0000-0000-0000-000000000001' and firm_id = '10000000-0000-0000-0000-000000000001';
+select pg_temp.as_user('00000000-0000-0000-0000-000000000001');
+do $$ begin
+  begin perform place_order('30000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', current_date + 1, '[{"product_id":"40000000-0000-0000-0000-000000000003","qty":12}]'); raise exception 'պետք է մերժվեր';
+  exception when raise_exception then if sqlerrm = 'պետք է մերժվեր' then raise; end if; end;
+end $$;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000007');
+update shop_firm_links set blocked = false where shop_id = '30000000-0000-0000-0000-000000000001' and firm_id = '10000000-0000-0000-0000-000000000001';
+
+-- 24. «Առաջարկել համագործակցություն» → խանութը ընդունում է
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+delete from shop_firm_links where shop_id = '30000000-0000-0000-0000-000000000001' and firm_id = (select firm_id from employees where user_id = '00000000-0000-0000-0000-000000000020');
+update shops set listed = true where id = '30000000-0000-0000-0000-000000000001';   -- թեստ 15-ում թաքցրել էինք
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000020');   -- Կարո (ֆիրմա առանց ղեկավարի)
+select offer_partnership('30000000-0000-0000-0000-000000000001');
+select pg_temp.as_user('00000000-0000-0000-0000-000000000001');   -- Կետ
+select answer_partnership((select firm_id from shop_firm_links where initiated_by = 'firm' limit 1), true);
+do $$ begin assert (select status from shop_firm_links where initiated_by = 'firm' limit 1) = 'active', 'խանութը պետք է ընդուներ'; end $$;
+
+-- 25. Առաջարկը (թեստ 17) ինքնաբերաբար բացեց անձնական չաթ Կարոյի և Կետի միջև
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+do $$ begin assert exists (select 1 from conversations c join messages m on m.conversation_id = c.id
+  where '00000000-0000-0000-0000-000000000020' in (c.a, c.b) and '00000000-0000-0000-0000-000000000001' in (c.a, c.b) and m.body like '💼 Առաջարկ%'), 'առաջարկը պետք է գնար չաթ'; end $$;
+set role authenticated;
+
+-- 26. Ուղղումներ. խանութը չի կարող կեղծել «ֆիրմայի առաջարկ», ֆիրման չի ընդունում իր առաջարկը, պատճառը՝ միայն ֆիրմային
+select pg_temp.as_user('00000000-0000-0000-0000-000000000001');   -- Կետ
+do $$ begin
+  begin insert into shop_firm_links (shop_id, firm_id, status, initiated_by)
+    values ('30000000-0000-0000-0000-000000000001', (select id from firms where name = 'Նոր Ֆիրմա'), 'pending', 'firm'); raise exception 'պետք է մերժվեր';
+  exception when insufficient_privilege then null; end;
+end $$;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000007');   -- Աթենքի ղեկավար
+insert into link_block_notes values ('30000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'ներքին նշում');
+select pg_temp.as_user('00000000-0000-0000-0000-000000000001');
+do $$ begin assert (select count(*) from link_block_notes) = 0, 'խանութը չպետք է տեսներ պատճառը'; end $$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+delete from shop_firm_links where shop_id = '30000000-0000-0000-0000-000000000001' and firm_id = (select firm_id from employees where user_id = '00000000-0000-0000-0000-000000000020');
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000020');   -- Կարո
+select offer_partnership('30000000-0000-0000-0000-000000000001');
+update shop_firm_links set status = 'active' where initiated_by = 'firm';
+do $$ begin assert (select status from shop_firm_links where initiated_by = 'firm' limit 1) = 'pending', 'ֆիրման չպետք է ընդուներ իր առաջարկը'; end $$;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000007');
+update shop_firm_links set blocked = true where shop_id = '30000000-0000-0000-0000-000000000001' and firm_id = '10000000-0000-0000-0000-000000000001';
+select pg_temp.as_user('00000000-0000-0000-0000-000000000001');
+do $$ begin
+  begin perform send_text_order('10000000-0000-0000-0000-000000000001', 'ձու 20 արկղ'); raise exception 'պետք է մերժվեր';
+  exception when raise_exception then if sqlerrm = 'պետք է մերժվեր' then raise; end if; end;
+end $$;
 
 reset role;
 \echo ✅ Բազայի բոլոր ստուգումներն անցան

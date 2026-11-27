@@ -186,6 +186,7 @@ export function Field({
           secureTextEntry={secure && hidden}
           keyboardType={keyboardType}
           placeholder={placeholder ?? (phone ? '+374 77 123456' : undefined)}
+          placeholderTextColor={colors.textMuted}
           // հեռախոսի դաշտում +374-ը գրվում է ինքնաբերաբար
           onFocus={() => phone && !value && onChangeText('+374 ')}
           onBlur={() => setTouched(true)}

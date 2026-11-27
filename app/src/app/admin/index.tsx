@@ -2,7 +2,7 @@
 // Պարզության կանոն. սա մեկ անգամ կարգավորվող էջ է, սովորական աշխատողը այն չի տեսնում։
 import { Redirect, router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Linking, Platform, Pressable, ScrollView, Switch, Text, View } from 'react-native';
+import { Linking, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { formatAmd, normalizePhone, toISODate } from '@/lib/rules';
 import { ChatButton, PlatformLink } from '@/components/chat-button';
@@ -20,7 +20,7 @@ import { Button, Card, Chips, CopyRow, Field, Logo, Screen, styles, Title } from
 const dayShort = ['', 'երկ', 'երք', 'չրք', 'հնգ', 'ուրբ', 'շբթ', 'կիր'];
 
 export default function Admin() {
-  const { session, employees, firms, shops, links, lines, teams, orders, issues, debts, payments, setLineDriver, setLineCutoff, toggleTeamMember, setLinkManager, setLinkLine, inviteEmployee, setEmployeePermission, setLinkTerms, updateFirm, signOut, reload } = useStore();
+  const { session, employees, firms, shops, links, lines, teams, orders, issues, debts, payments, setLineDriver, setLineCutoff, toggleTeamMember, setLinkManager, setLinkLine, inviteEmployee, setLinkTerms, updateFirm, signOut, reload } = useStore();
   const [tab, setTab] = useState<'today' | 'lines' | 'teams' | 'shops' | 'people' | 'firm'>('today');
   const [inv, setInv] = useState<{ name: string; role: 'manager' | 'staff' | 'driver'; department: string; phone: string }>({ name: '', role: 'driver', department: '', phone: '' });
   const [code, setCode] = useState<{ code: string; phone: string; name: string } | null>(null);
@@ -140,7 +140,8 @@ export default function Admin() {
         {tab === 'people' ? (
           <>
             <Card style={{ gap: 10 }}>
-              <Button kind="dark" label="🔍 Գտնել վարորդ հավելվածում" onPress={() => router.push('/firm/drivers')} />
+              <Button kind="dark" label="🔐 Թույլտվություններ (ում ինչ կարելի է)" onPress={() => router.push('/firm/permissions')} />
+              <Button kind="outline" label="🔍 Գտնել վարորդ հավելվածում" onPress={() => router.push('/firm/drivers')} />
               <Text style={styles.strong}>Նոր աշխատող (կոդով)</Text>
               <Field label="Անուն" value={inv.name} onChangeText={(v) => setInv({ ...inv, name: v })} />
               <Chips
@@ -174,12 +175,7 @@ export default function Admin() {
                   <Text style={[styles.strong, { flex: 1 }]}>{e.name}{e.id === me.id ? ' (դուք)' : ''}</Text>
                   <Text style={styles.muted}>{roleName(e.role, e.department)}</Text>
                 </View>
-                {e.role !== 'driver' ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Text style={styles.body}>💳 Հաստատում է վճարումներ</Text>
-                    <Switch value={!!e.canConfirmPayments} onValueChange={(v) => run(setEmployeePermission(e.id, v))} />
-                  </View>
-                ) : null}
+
               </View>
             ))}
           </>
@@ -241,7 +237,7 @@ export default function Admin() {
         {tab === 'lines' ? (
           <>
             <LinesExplainer />
-            <LinesEditor lines={firmLines} firmId={me.firmId} canCreate />
+            <LinesEditor lines={firmLines} firmId={me.firmId} canCreate shopIds={firmLinks.map((l) => l.shopId)} />
           </>
         ) : null}
 
