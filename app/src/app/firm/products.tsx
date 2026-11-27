@@ -5,6 +5,7 @@ import { Redirect, router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 
+import { categories } from '@/lib/categories';
 import { pickAndUpload } from '@/lib/media';
 import { formatAmd } from '@/lib/rules';
 import { matches } from '@/lib/search';
@@ -13,9 +14,9 @@ import { colors, radius } from '@/lib/theme';
 import { units, type Product, type Unit } from '@/lib/types';
 import { Button, Card, Chips, Field, Screen, styles, Title } from '@/lib/ui';
 
-type Draft = { id?: string; name: string; unit: Unit; packNote: string; price: string; minQty: string; step: string; weighed: boolean; inStock: boolean; imageUrl?: string };
-const empty: Draft = { name: '', unit: 'հատ', packNote: '', price: '', minQty: '1', step: '1', weighed: false, inStock: true };
-const toDraft = (p: Product): Draft => ({ id: p.id, name: p.name, unit: p.unit, packNote: p.packNote ?? '', price: String(p.price), minQty: String(p.minQty), step: String(p.step), weighed: !!p.weighed, inStock: p.inStock, imageUrl: p.imageUrl });
+type Draft = { id?: string; name: string; unit: Unit; packNote: string; price: string; minQty: string; step: string; weighed: boolean; inStock: boolean; imageUrl?: string; category?: string; categoryAuto: boolean };
+const empty: Draft = { name: '', unit: 'հատ', packNote: '', price: '', minQty: '1', step: '1', weighed: false, inStock: true, categoryAuto: true };
+const toDraft = (p: Product): Draft => ({ id: p.id, name: p.name, unit: p.unit, packNote: p.packNote ?? '', price: String(p.price), minQty: String(p.minQty), step: String(p.step), weighed: !!p.weighed, inStock: p.inStock, imageUrl: p.imageUrl, category: p.category, categoryAuto: p.categoryAuto !== false });
 
 /** CSV՝ Excel-ից «Save as CSV». սյուներ՝ name, unit, price, min_qty, step, pack_note (առաջին տողը՝ վերնագրեր) */
 function parseCsv(text: string): Record<string, string>[] {
@@ -58,6 +59,8 @@ export default function FirmProducts() {
       weighed: draft.weighed,
       inStock: draft.inStock,
       imageUrl: draft.imageUrl,
+      category: draft.category,
+      categoryAuto: draft.categoryAuto,
     });
     setBusy(false);
     setMsg(err);
@@ -118,6 +121,12 @@ export default function FirmProducts() {
               {draft.imageUrl ? <Image source={{ uri: draft.imageUrl }} style={{ width: 96, height: 96 }} contentFit="cover" /> : <Text style={styles.muted}>+ Նկար</Text>}
             </Pressable>
             <Field label="Անվանում" value={draft.name} onChangeText={(v) => set({ name: v })} />
+            <Text style={styles.muted}>Կատեգորիա{draft.categoryAuto ? ' (ընտրվում է ինքնաբերաբար՝ ըստ անվան)' : ''}</Text>
+            <Chips
+              options={[{ value: '__auto', label: draft.categoryAuto && draft.category ? `Ավտոմատ · ${draft.category}` : 'Ավտոմատ' }, ...categories.map((c) => ({ value: c, label: c }))]}
+              value={draft.categoryAuto ? '__auto' : draft.category ?? '__auto'}
+              onChange={(v) => set(v === '__auto' ? { categoryAuto: true } : { category: v, categoryAuto: false })}
+            />
             <Text style={styles.muted}>Միավոր</Text>
             <Chips options={units.map((u) => ({ value: u, label: u }))} value={draft.unit} onChange={(u) => set({ unit: u, weighed: u === 'կգ' || u === 'գ' ? true : draft.weighed })} />
             <Field label={`Գին մեկ ${draft.unit}-ի համար, ֏`} value={draft.price} onChangeText={(v) => set({ price: v.replace(/[^\d.,]/g, '') })} keyboardType="number-pad" />
@@ -165,6 +174,7 @@ export default function FirmProducts() {
                   <Text style={styles.body}>{p.name}</Text>
                   <Text style={styles.muted}>
                     {p.sku ? `${p.sku} · ` : ''}
+                    {p.category ? `${p.category} · ` : ''}
                     {formatAmd(p.price)} / {p.unit} · min {p.minQty}
                     {p.inStock ? '' : ' · Չկա'}
                   </Text>

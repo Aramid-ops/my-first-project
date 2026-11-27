@@ -148,6 +148,9 @@ export type Unit = 'հատ' | 'կգ' | 'գ' | 'լ' | 'մլ' | 'մ' | 'տուփ' 
 export const units: Unit[] = ['հատ', 'կգ', 'գ', 'լ', 'մլ', 'մ', 'տուփ', 'բլոկ', 'արկղ'];
 
 export interface Product {
+  /** Կատեգորիա (համակարգը ընտրում է ըստ անվան, մատակարարը կարող է փոխել) */
+  category?: string;
+  categoryAuto?: boolean;
   id: string;
   /** Արտիկուլ, օր.՝ AT0012 */
   sku?: string;

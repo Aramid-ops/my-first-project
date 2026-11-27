@@ -114,6 +114,18 @@ export default function ShopHome() {
           <Text style={{ fontSize: 20, color: '#FFFFFF' }}>›</Text>
         </Pressable>
 
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push('/shop/requests')}
+          style={({ pressed }) => [styles.card, { flexDirection: 'row', alignItems: 'center', gap: 12, opacity: pressed ? 0.8 : 1 }]}>
+          <Text style={{ fontSize: 22 }}>📣</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.strong}>Փնտրում եմ մատակարար</Text>
+            <Text style={styles.muted}>Գրեք ինչ է պետք, մատակարարները կուղարկեն առաջարկ</Text>
+          </View>
+          <Text style={{ fontSize: 20, color: colors.textMuted }}>›</Text>
+        </Pressable>
+
         {myLinks.length || ext.length ? <Text style={[styles.strong, { fontSize: 14, color: colors.textMuted }]}>Իմ մատակարարները</Text> : null}
         {myLinks.length === 0 && pending.length === 0 && ext.length === 0 ? (
           <Text style={styles.muted}>Գտեք մատակարարին որոնումով և սեղմեք «Միանալ»</Text>

@@ -79,6 +79,11 @@ export default function Inbox() {
             <Text style={{ color: colors.primary, fontWeight: '600' }}>🔍 Գտնել վարորդ →</Text>
           </Pressable>
         ) : null}
+        {isManager ? (
+          <Pressable accessibilityRole="button" onPress={() => router.push('/firm/requests')} hitSlop={8}>
+            <Text style={{ color: colors.primary, fontWeight: '600' }}>📣 Խանութները փնտրում են մատակարար →</Text>
+          </Pressable>
+        ) : null}
         {me.role === 'staff' || (isManager && firm.status === 'unclaimed') ? (
           <Pressable accessibilityRole="button" onPress={() => router.push('/firm/products')} hitSlop={8}>
             <Text style={{ color: colors.primary, fontWeight: '600' }}>Ապրանքներ և գներ →</Text>

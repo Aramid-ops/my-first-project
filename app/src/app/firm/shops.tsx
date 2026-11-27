@@ -3,6 +3,7 @@ import { Redirect, router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { categories } from '@/lib/categories';
 import { districts } from '@/lib/districts';
 import { matches } from '@/lib/search';
 import { useStore } from '@/lib/store';
@@ -12,7 +13,15 @@ import { Chips, Pill, Screen, styles, Title } from '@/lib/ui';
 
 type Row = { id: string; name: string; district: string | null; address: string | null; phone: string | null; contact_person: string | null; distance_km: number | null; is_client: boolean };
 /** «Ով է գնում»՝ ծավալը միայն միջակայքով, առանց մատակարարի և գնի */
-type Demand = Row & { qty_band: string; unit: string; last_band: string };
+type Demand = Row & { qty_band: string | null; unit: string | null; last_band: string | null; price_status: 'none' | 'mine' | 'cheaper' | 'pricier' | 'same' | null };
+// Համեմատությունը՝ ձեր գնի հետ (ուրիշի գինը չի երևում)
+const statusLabel = {
+  none: { text: '🔴 Չի գնում', color: '#9B2C2C' },
+  cheaper: { text: '🟢 Գնում է ձեր գնից էժան', color: '#2F5A2A' },
+  pricier: { text: '🟡 Գնում է ձեր գնից թանկ. արժի առաջարկել', color: '#7A5214' },
+  same: { text: '⚪ Գնում է մոտավորապես ձեր գնով', color: '#5B6470' },
+  mine: { text: '✓ Գնում է ձեզանից', color: '#1F5E4E' },
+};
 
 export default function AllShops() {
   const { session } = useStore();
@@ -56,9 +65,18 @@ export default function AllShops() {
         autoCorrect={false}
         style={{ minHeight: 46, borderWidth: 1, borderColor: colors.dark, borderRadius: radius.md, paddingHorizontal: 14, fontSize: 15, backgroundColor: colors.card, color: colors.text, marginBottom: 8 }}
       />
+      {!product.trim() ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, marginBottom: 8 }} contentContainerStyle={{ gap: 8 }}>
+          {categories.filter((c) => c !== 'Այլ').map((c) => (
+            <Pressable key={c} accessibilityRole="button" onPress={() => setProduct(c)} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.card }}>
+              <Text style={styles.body}>{c}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      ) : null}
       {demand ? (
         <Text style={[styles.muted, { marginBottom: 8 }]}>
-          {demand.length} կետ գնում է «{product.trim()}» (վերջին 3 ամիս, հավելվածի պատվերներով)։ Ծավալը՝ մոտավոր, ամսական։
+          {demand.filter((d) => d.qty_band).length} կետ գնում է «{product.trim()}», {demand.filter((d) => d.price_status === 'none').length}-ը՝ ոչ (վերջին 3 ամիս, հավելվածի պատվերներով)։ Ծավալը՝ մոտավոր, ամսական։
         </Text>
       ) : null}
       <TextInput
@@ -98,9 +116,12 @@ export default function AllShops() {
               {[r.district, r.address].filter(Boolean).join(', ')}
               {r.distance_km != null ? ` · 📍 ${r.distance_km} կմ` : ''}
             </Text>
+            {r.price_status && statusLabel[r.price_status] ? (
+              <Text style={{ color: statusLabel[r.price_status].color, fontWeight: '600' }}>{statusLabel[r.price_status].text}</Text>
+            ) : null}
             {r.qty_band ? (
-              <Text style={{ color: colors.dark, fontWeight: '600' }}>
-                Գնում է ≈ {r.qty_band} {r.unit}/ամիս · վերջինը՝ {r.last_band}
+              <Text style={styles.body}>
+                ≈ {r.qty_band} {r.unit}/ամիս · վերջինը՝ {r.last_band}
               </Text>
             ) : null}
             {r.contact_person ? <Text style={styles.body}>{r.contact_person}</Text> : null}

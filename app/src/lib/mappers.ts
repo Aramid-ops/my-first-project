@@ -105,6 +105,8 @@ export const mapProduct = (r: any): Product => ({
   step: Number(r.step),
   weighed: r.weighed,
   inStock: r.in_stock,
+  category: r.category ?? undefined,
+  categoryAuto: r.category_auto ?? true,
 });
 
 export const mapOrder = (r: any): Order => ({

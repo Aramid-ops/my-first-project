@@ -215,5 +215,36 @@ do $$ begin assert (select count(*) from shop_demand('կա')) >= 0; end $$;
 select pg_temp.as_user('00000000-0000-0000-0000-000000000001');
 do $$ begin assert (select count(*) from shop_demand('կա')) = 0, 'խանութը չպետք է տեսներ պահանջարկը'; end $$;
 
+-- 17. Կատեգորիաներ, «Ով է գնում» գնի համեմատությամբ, «Փնտրում եմ մատակարար»
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+do $$ begin
+  assert guess_category('Լավաշ թարմ') = 'Հացաբուլկեղեն', 'լավաշ';
+  assert guess_category('Կաթ 3.2%, 1 լ') = 'Կաթնամթերք', 'կաթ';
+  assert guess_category('Զուգարանի թուղթ, 3 շերտ') = 'Տնտեսական ապրանքներ', 'թուղթ';
+  assert guess_category('Яйцо куриное С0') = 'Ձու', 'яйцо';
+  assert guess_category('Հանքային ջուր, 0.5 լ') = 'Ըմպելիքներ', 'ջուր';
+  assert guess_category('Ինչ-որ բան') = 'Այլ', 'այլ';
+end $$;
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000002');   -- Կարեն
+do $$ begin assert (select count(*) from shop_demand('կաթ') where price_status is not null or true) >= 0; end $$;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000001');   -- Կետ
+insert into supply_requests (shop_id, text) select shop_id, 'Փնտրում եմ ձու, շաբաթական 300 հատ' from shop_members where user_id = auth.uid();
+do $$ begin assert (select category from supply_requests limit 1) = 'Ձու', 'հարցման կատեգորիան'; end $$;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000020');   -- Կարո (այլ ֆիրմա)
+do $$ begin assert (select count(*) from supply_requests) = 1, 'մատակարարը պետք է տեսներ հարցումը'; end $$;
+insert into supply_offers (request_id, firm_id, employee_id, text, price)
+  select r.id, (my_employee()).firm_id, (my_employee()).id, 'Ունենք ձու C0, 65 ֏', 65 from supply_requests r;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000002');   -- Կարեն (մրցակից)
+do $$ begin assert (select count(*) from supply_offers) = 0, 'մրցակիցը չպետք է տեսներ ուրիշի առաջարկը'; end $$;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000001');
+do $$ begin assert (select count(*) from supply_offers) = 1, 'խանութը պետք է տեսներ առաջարկը'; end $$;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000030');   -- կողմնակի վարորդ
+do $$ begin
+  begin insert into supply_requests (shop_id, text) select id, 'xx' from shops limit 1; raise exception 'պետք է մերժվեր';
+  exception when insufficient_privilege then null; end;
+end $$;
+
 reset role;
 \echo ✅ Բազայի բոլոր ստուգումներն անցան

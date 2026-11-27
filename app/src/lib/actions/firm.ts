@@ -21,6 +21,8 @@ export function firmActions(c: ActionCtx): FirmActions {
         weighed: !!p.weighed,
         in_stock: p.inStock ?? true,
         image_url: p.imageUrl || null,
+        // ձեռքով ընտրված կատեգորիա, թե ավտոմատ
+        ...(p.categoryAuto === false ? { category: p.category, category_auto: false } : { category_auto: true }),
       };
       return run(c, p.id ? supabase.from('products').update(row).eq('id', p.id) : supabase.from('products').insert(row));
     },
