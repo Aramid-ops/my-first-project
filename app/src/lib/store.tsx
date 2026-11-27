@@ -203,22 +203,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
     const cacheKey = `snapshot:${auth.user.id}`;
     const uid = auth.user.id;
-    const [tm, tmm, ln, iss, dbt, pay] = await Promise.all([
+    // Բոլոր հարցումները՝ զուգահեռ (ոչ թե հերթով)
+    const [tm, tmm, ln, iss, dbt, pay, pa, dp] = await Promise.all([
       supabase.from('teams').select('*'),
       supabase.from('team_members').select('*'),
       supabase.from('lines').select('*'),
       supabase.from('order_issues').select('*').order('created_at', { ascending: false }),
       supabase.rpc('debts'),
       supabase.from('payments').select('*').order('marked_paid_by_shop_at', { ascending: false }),
+      supabase.from('platform_admins').select('user_id').maybeSingle(),
+      supabase.from('driver_profiles').select('*').eq('user_id', uid).maybeSingle(),
     ]);
     /* eslint-disable @typescript-eslint/no-explicit-any */
     setIssues((iss.data ?? []).map((r: any) => ({ id: r.id, orderId: r.order_id, productId: r.product_id ?? undefined, kind: r.kind, qty: r.qty == null ? undefined : Number(r.qty), note: r.note ?? undefined, photoUrl: r.photo_url ?? undefined, createdAt: r.created_at })));
     setDebts((dbt.data ?? []).map((r: any) => ({ shopId: r.shop_id, firmId: r.firm_id, delivered: Number(r.delivered), paid: Number(r.paid), pending: Number(r.pending), debt: Number(r.debt) })));
     setPayments((pay.data ?? []).map((r: any) => ({ id: r.id, shopId: r.shop_id, firmId: r.firm_id, amount: Number(r.amount), confirmed: !!r.confirmed_at, markedAt: r.marked_paid_by_shop_at ?? undefined, note: r.note ?? undefined })));
     /* eslint-enable @typescript-eslint/no-explicit-any */
-    const pa = await supabase.from('platform_admins').select('user_id').maybeSingle();
     setIsPlatformAdmin(!!pa.data);
-    const dp = await supabase.from('driver_profiles').select('*').eq('user_id', uid).maybeSingle();
     setDriverProfile(
       dp.data
         ? {
@@ -242,7 +243,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       supabase.from('shops').select('*'),
       supabase.from('shop_firm_links').select('*'),
       supabase.from('products').select('*').order('name'),
-      supabase.from('orders').select('*, order_items(*), order_events(*)').order('created_at', { ascending: false }),
+      // վերջին 90 օրը (ավելի հինը պետք չէ ամեն բացելիս բեռնել)
+      supabase
+        .from('orders')
+        .select('*, order_items(*), order_events(*)')
+        .gte('created_at', new Date(Date.now() - 90 * 86400000).toISOString())
+        .order('created_at', { ascending: false })
+        .limit(500),
       supabase.from('employees').select('id, role').eq('user_id', uid).maybeSingle(),
       supabase.from('shop_members').select('shop_id').eq('user_id', uid).maybeSingle(),
     ]);
