@@ -1,7 +1,7 @@
 // Չաթ. զրույցներ, կոնտակտներ, հաղորդագրություններ (ակնթարթային)
 import { useCallback, useEffect, useState } from 'react';
 
-import { supabase } from './supabase';
+import { channelName, supabase } from './supabase';
 
 export type Conversation = { id: string; title: string; lastText?: string; lastAt: string; unread: number };
 export type Contact = { userId: string; name: string; subtitle: string };
@@ -33,7 +33,7 @@ export function useConversations() {
   }, []);
   useEffect(() => {
     load();
-    const ch = supabase.channel('chat-list').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, load).subscribe();
+    const ch = supabase.channel(channelName('chat-list')).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, load).subscribe();
     return () => {
       supabase.removeChannel(ch);
     };
@@ -75,7 +75,7 @@ export function useMessages(conversationId: string) {
   useEffect(() => {
     load();
     const ch = supabase
-      .channel(`chat-${conversationId}`)
+      .channel(channelName(`chat-${conversationId}`))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` }, load)
       .subscribe();
     return () => {

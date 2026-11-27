@@ -16,7 +16,7 @@ import { shopActions } from './actions/shop';
 import { emptyData, loadData } from './data';
 import { registerPush } from './push';
 import type { ActionCtx, Cart, Data, Store } from './store-types';
-import { supabase } from './supabase';
+import { channelName, supabase } from './supabase';
 
 export type { Session, Store } from './store-types';
 
@@ -59,7 +59,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!auth) return;
     const ch = supabase
-      .channel('orders-live')
+      .channel(channelName('orders-live'))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => reload())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'text_orders' }, () => reload())
       .subscribe();

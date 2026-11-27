@@ -7,7 +7,7 @@ import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-nat
 
 import { formatAmd, formatDayTime } from '@/lib/rules';
 import { useStore } from '@/lib/store';
-import { supabase } from '@/lib/supabase';
+import { channelName, supabase } from '@/lib/supabase';
 import { colors, radius } from '@/lib/theme';
 import { Button, Chips, Logo, Pill, Screen, styles } from '@/lib/ui';
 import { colorFor } from '@/lib/mappers';
@@ -57,7 +57,7 @@ export default function LiveMarket() {
   useEffect(() => {
     load();
     const ch = supabase
-      .channel('live-market')
+      .channel(channelName('live-market'))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'supply_requests' }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'supply_offers' }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'supplier_deals' }, load)

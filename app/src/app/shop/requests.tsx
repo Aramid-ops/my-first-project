@@ -5,7 +5,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { formatAmd, formatDayTime } from '@/lib/rules';
 import { useStore } from '@/lib/store';
-import { supabase } from '@/lib/supabase';
+import { channelName, supabase } from '@/lib/supabase';
 import { colors, radius } from '@/lib/theme';
 import { Button, Card, Field, Pill, Screen, styles, Title } from '@/lib/ui';
 
@@ -24,7 +24,7 @@ export default function SupplyRequests() {
   }, []);
   useEffect(() => {
     load();
-    const ch = supabase.channel('my-supply-offers').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'supply_offers' }, load).subscribe();
+    const ch = supabase.channel(channelName('my-supply-offers')).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'supply_offers' }, load).subscribe();
     return () => {
       supabase.removeChannel(ch);
     };

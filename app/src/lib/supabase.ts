@@ -15,3 +15,9 @@ export const supabase = createClient(url, key, {
     detectSessionInUrl: false,
   },
 });
+
+/**
+ * Ակնթարթային կապի եզակի անուն։ Նույն անունով երկու կապ (օր.՝ 💬 կոճակը և չաթերի էջը միաժամանակ)
+ * փլուզում է էջը («cannot add postgres_changes callbacks after subscribe»), դրա համար ավելացնում ենք պատահական վերջածանց։
+ */
+export const channelName = (base: string) => `${base}-${Math.random().toString(36).slice(2, 10)}`;
