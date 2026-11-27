@@ -4,6 +4,7 @@
 //   🏢 Ֆիրմա — իրավաբանական տվյալներ; կարող է «վերցնել» արդեն գրանցված մենեջերների ֆիրման
 //   🚚 Աշխատող — միայն հրավերի կոդ
 import { router } from 'expo-router';
+import { districts } from '@/lib/districts';
 import { isValidPhone, normalizePhone } from '@/lib/rules';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
@@ -16,7 +17,6 @@ import { Button, Card, Chips, Field, Screen, styles, Title } from '@/lib/ui';
 type Kind = 'shop' | 'manager' | 'firm' | 'driver' | 'employee';
 type PubFirm = { id: string; name: string; category: string | null; status: string };
 
-const districts = ['Աջափնյակ', 'Ավան', 'Արաբկիր', 'Դավթաշեն', 'Էրեբունի', 'Կենտրոն', 'Մալաթիա-Սեբաստիա', 'Նոր Նորք', 'Նորք-Մարաշ', 'Նուբարաշեն', 'Շենգավիթ', 'Քանաքեռ-Զեյթուն'];
 const kinds: { value: Kind; label: string }[] = [
   { value: 'shop', label: '🏪 Խանութ / ռեստորան' },
   { value: 'manager', label: '👔 Մատակարար (մենեջեր)' },

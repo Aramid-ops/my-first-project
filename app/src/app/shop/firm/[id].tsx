@@ -1,4 +1,4 @@
-// Մատակարարի էջ (դեռ միացած չեմ). տվյալներ, տեսականի (առանց գների) և «Միանալ» հայտ
+// Մատակարարի էջ (դեռ միացած չեմ). տվյալներ, տեսականի ընդհանուր գներով և «Միանալ» հայտ
 import { Image } from 'expo-image';
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -10,7 +10,7 @@ import { supabase } from '@/lib/supabase';
 import { colors, radius } from '@/lib/theme';
 import { Button, Card, Logo, Pill, Screen, styles } from '@/lib/ui';
 
-type Item = { id: string; sku: string | null; name: string; image_url: string | null; unit: string; pack_note: string | null; in_stock: boolean };
+type Item = { id: string; sku: string | null; name: string; image_url: string | null; unit: string; pack_note: string | null; in_stock: boolean; price: number };
 
 export default function FirmProfile() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -81,7 +81,7 @@ export default function FirmProfile() {
           />
         )}
         {msg ? <Text style={{ color: colors.warnText }}>{msg}</Text> : null}
-        <Text style={styles.muted}>Հայտի հետ մատակարարը կտեսնի ձեր խանութի տվյալները (անվանում, ՀՎՀՀ, հասցե, հեռախոս)։ Գները կտեսնեք միանալուց հետո։</Text>
+        <Text style={styles.muted}>Հայտի հետ մատակարարը կտեսնի ձեր խանութի տվյալները (անվանում, ՀՎՀՀ, հասցե, հեռախոս)։ Գները ընդհանուր են. միանալուց հետո մատակարարը կարող է ձեզ զեղչ տալ։</Text>
 
         <Text style={[styles.strong, { marginTop: 4 }]}>Տեսականի{items ? ` · ${items.length}` : ''}</Text>
         {items?.length === 0 ? <Text style={styles.muted}>Ապրանքներ դեռ չկան</Text> : null}
@@ -92,9 +92,9 @@ export default function FirmProfile() {
                 <Image source={{ uri: p.image_url }} style={{ width: '100%', height: 90, borderRadius: radius.sm }} contentFit="cover" accessibilityLabel={p.name} />
               ) : null}
               <Text style={styles.body} numberOfLines={3}>{p.name}</Text>
+              <Text style={{ fontWeight: '700', color: colors.text }}>{formatAmd(Number(p.price))} / {p.unit}</Text>
               <Text style={styles.muted}>
-                {p.unit}
-                {p.pack_note ? ` · ${p.pack_note}` : ''}
+                {p.pack_note ?? ''}
                 {p.in_stock ? '' : ' · Չկա'}
               </Text>
             </View>

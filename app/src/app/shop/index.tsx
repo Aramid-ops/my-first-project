@@ -96,6 +96,12 @@ export default function ShopHome() {
           </Pressable>
         ))}
 
+        {shop.lat == null || !shop.district ? (
+          <Pressable accessibilityRole="button" onPress={() => router.push('/shop/profile')} style={[styles.card, { borderColor: colors.dark }]}>
+            <Text style={styles.strong}>📍 Նշեք ձեր թաղամասը և տեղը</Text>
+            <Text style={styles.muted}>Այդպես կտեսնեք մոտակա մատակարարներին և ձեր թաղամասի մենեջերին →</Text>
+          </Pressable>
+        ) : null}
         <Pressable
           accessibilityRole="button"
           onPress={() => router.push('/shop/suppliers')}

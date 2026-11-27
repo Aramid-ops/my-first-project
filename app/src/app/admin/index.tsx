@@ -10,6 +10,7 @@ import { InviteButton } from '@/components/invite-button';
 import { useStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { colors } from '@/lib/theme';
+import { currentPoint } from '@/lib/geo';
 import { pickAndUpload } from '@/lib/media';
 import { Button, Card, Chips, CopyRow, Field, Logo, Screen, styles, Title } from '@/lib/ui';
 
@@ -200,6 +201,20 @@ export default function Admin() {
                 </>
               );
             })()}
+            {/* Պահեստի տեղը՝ «մոտիկից» դասավորման և վարորդների երթուղու համար */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Text style={[styles.body, { flex: 1 }]}>{firm.baseLat != null ? '📍 Պահեստի տեղը նշված է ✓' : '📍 Պահեստի տեղը նշված չէ'}</Text>
+              <Button
+                kind="outline"
+                label={firm.baseLat != null ? 'Թարմացնել' : 'Նշել'}
+                onPress={async () => {
+                  const p = await currentPoint();
+                  if (!p) return setError('Չհաջողվեց որոշել տեղը. թույլ տվեք տեղորոշումը');
+                  run(updateFirm({ base_lat: p.lat, base_lng: p.lng }));
+                }}
+              />
+            </View>
+            <Text style={styles.muted}>Սեղմեք, երբ գտնվում եք պահեստում։</Text>
             <Button kind="dark" label="Ապրանքներ →" onPress={() => router.push('/firm/products')} />
           </Card>
         ) : null}
@@ -260,6 +275,7 @@ export default function Admin() {
             ))
           : null}
 
+        {tab === 'shops' ? <Button kind="dark" label="🏪 Բոլոր խանութները (նոր հաճախորդներ)" onPress={() => router.push('/firm/shops')} /> : null}
         {tab === 'shops'
           ? firmLinks.map((l) => {
               const shop = shops.find((s) => s.id === l.shopId);

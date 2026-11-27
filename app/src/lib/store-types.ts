@@ -76,7 +76,7 @@ export interface CartActions {
 
 export interface ShopActions {
   requestJoin: (firmId: string) => Result;
-  updateShop: (patch: Record<string, string>) => Result;
+  updateShop: (patch: Record<string, unknown>) => Result;
   markPaid: (firmId: string, amount: number, note: string) => Result;
   /** Գրված կամ թելադրված պատվեր՝ մենեջերին */
   sendTextOrder: (firmId: string, text: string) => Result;

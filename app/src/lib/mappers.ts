@@ -44,6 +44,7 @@ export const mapEmployee = (r: any): Employee => ({
   department: r.department ?? undefined,
   defaultForwardToId: r.default_forward_to ?? undefined,
   phone: r.phone ?? undefined,
+  districts: r.districts ?? [],
 });
 
 export const mapShop = (r: any): Shop => ({
@@ -59,6 +60,7 @@ export const mapShop = (r: any): Shop => ({
   legalName: r.legal_name ?? undefined,
   email: r.email ?? undefined,
   contactPerson: r.contact_person ?? undefined,
+  listed: r.listed ?? true,
 });
 
 export const mapLink = (r: any): ShopFirmLink => ({

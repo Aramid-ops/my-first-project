@@ -188,5 +188,26 @@ do $$ begin
 end $$;
 set role authenticated;
 
+-- 15. Շուկայի որոնում (բոլոր մատակարարները) և «Բոլոր խանութները»
+select pg_temp.as_user('00000000-0000-0000-0000-000000000001');   -- Կետ (խանութ)
+do $$ declare n int; begin
+  select count(*) into n from market_search('a', 'cheap');
+  assert (select count(distinct firm_id) from market_search('a', 'best')) >= 1, 'որոնումը պետք է արդյունք տար';
+  assert (select bool_and(ok) from (select price >= lag(price) over () or lag(price) over () is null as ok
+          from (select price from market_search('a', 'cheap') where in_stock) x) y) is not false, 'էժանից դասավորումը սխալ է';
+end $$;
+do $$ begin assert (select count(*) from shop_directory()) = 0, 'խանութը չպետք է տեսներ խանութների ցուցակը'; end $$;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000002');   -- Կարեն (մենեջեր)
+do $$ begin assert (select count(*) from shop_directory()) >= 1, 'մենեջերը պետք է տեսներ խանութները'; end $$;
+do $$ begin assert (select count(*) from market_search('a')) = 0, 'մենեջերի համար որոնումը դատարկ է (միայն խանութների համար)'; end $$;
+select set_my_districts(array['Աջափնյակ']);
+do $$ begin assert (select districts from employees where user_id = auth.uid()) = array['Աջափնյակ'], 'թաղամասը չպահվեց'; end $$;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000001');
+do $$ begin
+  begin update shops set listed = false where id in (select shop_id from shop_members where user_id = auth.uid()); end;
+end $$;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000002');
+do $$ begin assert not exists (select 1 from shop_directory() where name like '%Կետ%'), 'թաքցրած խանութը չպետք է երևար'; end $$;
+
 reset role;
 \echo ✅ Բազայի բոլոր ստուգումներն անցան

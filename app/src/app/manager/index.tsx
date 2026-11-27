@@ -10,7 +10,9 @@ import { ForwardPicker } from '@/components/forward-picker';
 import { deliveryLabel, formatAmd, formatDayTime, formatQty, formatTime } from '@/lib/rules';
 import { ChatButton, PlatformLink } from '@/components/chat-button';
 import { InviteButton } from '@/components/invite-button';
+import { districts } from '@/lib/districts';
 import { useStore } from '@/lib/store';
+import { supabase } from '@/lib/supabase';
 import { colors, radius } from '@/lib/theme';
 import { issueLabel, type Order } from '@/lib/types';
 import { Button, Chips, CopyRow, Pill, Screen, styles, Title } from '@/lib/ui';
@@ -151,6 +153,32 @@ export default function Inbox() {
             : requests.map((l) => <JoinRequest key={l.shopId} shopId={l.shopId} />)
           : null}
 
+        {tab === 'shops' ? (
+          <View style={[styles.card, { gap: 8 }]}>
+            <Text style={styles.strong}>Իմ թաղամասերը</Text>
+            <Text style={styles.muted}>Այս թաղամասերի խանութների հայտերը կգան ձեզ, և խանութները որոնման մեջ ձեզ կտեսնեն որպես իրենց մենեջեր</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {districts.map((d) => {
+                const on = (me.districts ?? []).includes(d);
+                return (
+                  <Pressable
+                    key={d}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: on }}
+                    onPress={async () => {
+                      const next = on ? (me.districts ?? []).filter((x) => x !== d) : [...(me.districts ?? []), d];
+                      await supabase.rpc('set_my_districts', { p_districts: next });
+                      s.reload();
+                    }}
+                    style={{ minHeight: 40, paddingHorizontal: 12, borderRadius: 999, justifyContent: 'center', backgroundColor: on ? colors.dark : colors.card, borderWidth: 1, borderColor: on ? colors.dark : colors.borderStrong }}>
+                    <Text style={{ color: on ? '#FFFFFF' : colors.text }}>{on ? '✓ ' : ''}{d}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Button kind="dark" label="🏪 Բոլոր խանութները (նոր հաճախորդներ)" onPress={() => router.push('/firm/shops')} />
+          </View>
+        ) : null}
         {tab === 'shops'
           ? myLinks.map((l) => {
               const shop = s.shops.find((x) => x.id === l.shopId);

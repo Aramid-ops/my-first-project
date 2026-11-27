@@ -37,6 +37,8 @@ export interface Employee {
   /** Մենեջերի համար՝ ում է լռելյայն փոխանցում պատվերները */
   defaultForwardToId?: string;
   phone?: string;
+  /** Մենեջերի թաղամասերը (խանութները այնտեղից գալիս են նրան) */
+  districts?: string[];
 }
 
 export interface Shop {
@@ -52,6 +54,8 @@ export interface Shop {
   legalName?: string;
   email?: string;
   contactPerson?: string;
+  /** Երևա՞լ «Բոլոր խանութները» ցուցակում (մատակարարներին) */
+  listed?: boolean;
 }
 
 /** Խանութի կապը ֆիրմայի հետ. ճիշտ մեկ մենեջեր (§2, կանոն 2) */
