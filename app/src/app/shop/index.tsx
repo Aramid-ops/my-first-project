@@ -1,5 +1,9 @@
-import { Redirect, router } from 'expo-router';
+import { Redirect, router, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
+
+import { colorFor } from '@/lib/mappers';
+import { supabase } from '@/lib/supabase';
 
 import { deliveryLabel } from '@/lib/rules';
 import { ChatButton, PlatformLink } from '@/components/chat-button';
@@ -10,6 +14,13 @@ import { Button, Logo, Screen, styles, Title } from '@/lib/ui';
 
 export default function ShopHome() {
   const { session, shops, links, firms, employees, cart, orders, signOut, deliveryDate, savedLists, applyList, requestJoin } = useStore();
+  // Հավելվածից դուրս մատակարարները (WhatsApp / Viber / SMS) նույնպես «Իմ մատակարարները»-ում են
+  const [ext, setExt] = useState<{ id: string; name: string; category: string | null; channel: string }[]>([]);
+  useFocusEffect(
+    useCallback(() => {
+      supabase.from('external_suppliers').select('id, name, category, channel').order('name').then(({ data }) => setExt(data ?? []));
+    }, []),
+  );
   if (session?.kind !== 'shop') return <Redirect href="/" />;
   const shop = shops.find((s) => s.id === session.shopId)!;
   if (!shop) return <Redirect href="/" />;
@@ -26,8 +37,8 @@ export default function ShopHome() {
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <Text style={{ fontSize: 15, fontWeight: '700', color: colors.dark }}>Մատակարար</Text>
         <View style={{ flexDirection: 'row', gap: 16 }}>
-          <Pressable accessibilityRole="button" onPress={() => router.push('/shop/profile')} hitSlop={12}>
-            <Text style={styles.muted}>Իմ տվյալները</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel="Իմ տվյալները" onPress={() => router.push('/shop/profile')} hitSlop={12}>
+            <Text style={{ fontSize: 18 }}>👤</Text>
           </Pressable>
           <View style={{ flexDirection: 'row', gap: 16 }}>
             <PlatformLink />
@@ -85,8 +96,8 @@ export default function ShopHome() {
           </Pressable>
         ))}
 
-        {myLinks.length ? <Text style={[styles.strong, { fontSize: 14, color: colors.textMuted }]}>Իմ մատակարարները</Text> : null}
-        {myLinks.length === 0 && pending.length === 0 ? (
+        {myLinks.length || ext.length ? <Text style={[styles.strong, { fontSize: 14, color: colors.textMuted }]}>Իմ մատակարարները</Text> : null}
+        {myLinks.length === 0 && pending.length === 0 && ext.length === 0 ? (
           <Text style={styles.muted}>Գտեք մատակարարին որոնումով և սեղմեք «Միանալ»</Text>
         ) : null}
         {pending.map((l) => (
@@ -116,8 +127,28 @@ export default function ShopHome() {
             </Pressable>
           );
         })}
+        {ext.map((e) => {
+          const c = colorFor(e.id);
+          return (
+            <Pressable
+              key={e.id}
+              accessibilityRole="button"
+              onPress={() => router.push(`/shop/external?open=${e.id}`)}
+              style={({ pressed }) => [styles.card, { flexDirection: 'row', alignItems: 'center', gap: 14, opacity: pressed ? 0.8 : 1 }]}>
+              <Logo name={e.name} bg={c.bg} fg={c.fg} size={56} />
+              <View style={{ flex: 1, gap: 3 }}>
+                <Text style={styles.strong}>{e.name}</Text>
+                {e.category ? <Text style={styles.muted}>{e.category}</Text> : null}
+                <Text style={{ fontSize: 13, fontWeight: '600', color: colors.infoText }}>
+                  Պատվեր՝ {e.channel === 'whatsapp' ? 'WhatsApp' : e.channel === 'viber' ? 'Viber' : 'SMS'}-ով
+                </Text>
+              </View>
+              <Text style={{ fontSize: 20, color: colors.textMuted }}>›</Text>
+            </Pressable>
+          );
+        })}
         <Pressable accessibilityRole="button" onPress={() => router.push('/shop/external')} style={{ paddingVertical: 10 }}>
-          <Text style={{ color: colors.primary, fontWeight: '600', textAlign: 'center' }}>Այլ մատակարարներ (WhatsApp / Viber / SMS)</Text>
+          <Text style={{ color: colors.primary, fontWeight: '600', textAlign: 'center' }}>+ Ավելացնել մատակարար, որը հավելվածում չէ (WhatsApp / Viber / SMS)</Text>
         </Pressable>
       </ScrollView>
 
