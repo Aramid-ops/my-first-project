@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, Text, TextInput, View, type TextInputProps, type
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, radius, touch } from './theme';
+import { isValidPhone } from './rules';
 
 export function Screen({ children }: { children: ReactNode }) {
   return (
@@ -168,6 +169,9 @@ export function Field({
   autoComplete?: TextInputProps['autoComplete'];
 }) {
   const [hidden, setHidden] = useState(true);
+  const [touched, setTouched] = useState(false);
+  const phone = keyboardType === 'phone-pad';
+  const phoneBad = phone && touched && value.replace(/\D/g, '').length > 3 && !isValidPhone(value);
   const auto = autoComplete ?? (keyboardType === 'email-address' ? 'email' : secure ? 'password' : keyboardType === 'phone-pad' ? 'tel' : 'off');
   return (
     <View style={{ gap: 4 }}>
@@ -179,7 +183,10 @@ export function Field({
           onChangeText={onChangeText}
           secureTextEntry={secure && hidden}
           keyboardType={keyboardType}
-          placeholder={placeholder}
+          placeholder={placeholder ?? (phone ? '+374 77 123456' : undefined)}
+          // հեռախոսի դաշտում +374-ը գրվում է ինքնաբերաբար
+          onFocus={() => phone && !value && onChangeText('+374 ')}
+          onBlur={() => setTouched(true)}
           autoComplete={auto}
           importantForAutofill={auto === 'off' ? 'no' : 'auto'}
           autoCapitalize={keyboardType === 'email-address' || secure ? 'none' : 'sentences'}
@@ -196,6 +203,7 @@ export function Field({
           </Pressable>
         ) : null}
       </View>
+      {phoneBad ? <Text style={{ color: colors.warnText, fontSize: 13 }}>Համարը սխալ է։ Օրինակ՝ +374 77 123456</Text> : null}
     </View>
   );
 }

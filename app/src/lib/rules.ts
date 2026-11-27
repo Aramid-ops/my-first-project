@@ -81,3 +81,18 @@ export function formatDayTime(iso: string): string {
   const d = new Date(iso);
   return `${`${d.getDate()}`.padStart(2, '0')}.${`${d.getMonth() + 1}`.padStart(2, '0')} · ${formatTime(iso)}`;
 }
+
+/** Հեռախոսահամար՝ «+» և միայն թվեր (օր.՝ «077 12-34-56» → «+37477123456») */
+export function normalizePhone(v: string): string {
+  let d = v.replace(/\D/g, '');
+  if (d.startsWith('00')) d = d.slice(2);
+  else if (d.length === 9 && d.startsWith('0')) d = `374${d.slice(1)}`; // 0XX XXXXXX → Հայաստան
+  else if (d.length === 8) d = `374${d}`;
+  return d ? `+${d}` : '';
+}
+
+/** Հայաստան՝ +374 և 8 թիվ; այլ երկրներ՝ 10–15 թիվ */
+export function isValidPhone(v: string): boolean {
+  const d = normalizePhone(v).slice(1);
+  return d.startsWith('374') ? d.length === 11 : d.length >= 10 && d.length <= 15;
+}

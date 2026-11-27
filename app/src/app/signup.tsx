@@ -4,6 +4,7 @@
 //   🏢 Ֆիրմա — իրավաբանական տվյալներ; կարող է «վերցնել» արդեն գրանցված մենեջերների ֆիրման
 //   🚚 Աշխատող — միայն հրավերի կոդ
 import { router } from 'expo-router';
+import { isValidPhone, normalizePhone } from '@/lib/rules';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
 
@@ -25,7 +26,7 @@ const kinds: { value: Kind; label: string }[] = [
 ];
 
 const emailOk = (e: string) => /^\S+@\S+\.\S+$/.test(e);
-const phoneOk = (p: string) => p.replace(/\D/g, '').length >= 8;
+const phoneOk = isValidPhone;
 
 export default function SignUp() {
   const [kind, setKind] = useState<Kind>('shop');
@@ -47,7 +48,7 @@ export default function SignUp() {
     supabase.rpc('public_firms').then(({ data }) => setFirms((data ?? []) as PubFirm[]));
   }, []);
 
-  const common = !f.name.trim() ? 'Լրացրեք անունը' : !phoneOk(f.phone) ? 'Լրացրեք հեռախոսը' : !emailOk(f.email) ? 'Լրացրեք էլ. փոստը' : f.password.length < 8 ? 'Գաղտնաբառը՝ առնվազն 8 նիշ' : null;
+  const common = !f.name.trim() ? 'Լրացրեք անունը' : !phoneOk(f.phone) ? 'Հեռախոսը սխալ է (օր.՝ +374 77 123456)' : !emailOk(f.email) ? 'Լրացրեք էլ. փոստը' : f.password.length < 8 ? 'Գաղտնաբառը՝ առնվազն 8 նիշ' : null;
   const problem =
     kind === 'employee' ? (f.code.length !== 6 ? 'Գրեք 6-նիշ կոդը' : !emailOk(f.email) ? 'Լրացրեք էլ. փոստը' : f.password.length < 8 ? 'Գաղտնաբառը՝ առնվազն 8 նիշ' : null)
     : kind === 'shop' ? (!f.shop_name ? 'Լրացրեք անունը' : !/^\d{8}$/.test(f.tax_id) ? 'ՀՎՀՀ-ն պետք է լինի 8 թիվ' : !f.district || !f.address ? 'Լրացրեք հասցեն' : common)
@@ -58,13 +59,13 @@ export default function SignUp() {
   const metadata = () => {
     switch (kind) {
       case 'shop':
-        return { kind, name: f.shop_name, legal_name: f.legal_name || f.shop_name, tax_id: f.tax_id, city: 'Երևան', district: f.district, address: f.address, phone: f.phone, email: f.email, contact_person: f.contact_person || f.name };
+        return { kind, name: f.shop_name, legal_name: f.legal_name || f.shop_name, tax_id: f.tax_id, city: 'Երևան', district: f.district, address: f.address, phone: normalizePhone(f.phone), email: f.email, contact_person: f.contact_person || f.name };
       case 'manager':
-        return { kind, name: f.name, phone: f.phone, firm_id: f.firm_id || null, firm_name: f.firm_name, category: f.category };
+        return { kind, name: f.name, phone: normalizePhone(f.phone), firm_id: f.firm_id || null, firm_name: f.firm_name, category: f.category };
       case 'driver':
-        return { kind, name: f.name, phone: f.phone, address: f.address, license_categories: licenses, vehicle_type: f.vehicle_type, vehicle_model: f.vehicle_model, plate: f.plate, capacity_kg: f.capacity_kg, refrigerated: fridge };
+        return { kind, name: f.name, phone: normalizePhone(f.phone), address: f.address, license_categories: licenses, vehicle_type: f.vehicle_type, vehicle_model: f.vehicle_model, plate: f.plate, capacity_kg: f.capacity_kg, refrigerated: fridge };
       case 'firm':
-        return { kind, name: f.name, phone: f.phone, firm_id: f.firm_id || null, firm_name: f.firm_name, legal_name: f.legal_name || f.firm_name, tax_id: f.tax_id, address: f.address, category: f.category };
+        return { kind, name: f.name, phone: normalizePhone(f.phone), firm_id: f.firm_id || null, firm_name: f.firm_name, legal_name: f.legal_name || f.firm_name, tax_id: f.tax_id, address: f.address, category: f.category };
       default:
         return { kind, code: f.code };
     }
@@ -184,7 +185,7 @@ export default function SignUp() {
           {kind !== 'employee' ? (
             <>
               <Field label={kind === 'shop' ? 'Կոնտակտային անձ' : 'Ձեր անունը'} value={f.name} onChangeText={set('name')} autoComplete="name" />
-              <Field label="Հեռախոս" value={f.phone} onChangeText={set('phone')} keyboardType="phone-pad" placeholder="+374 ..." />
+              <Field label="Հեռախոս" value={f.phone} onChangeText={set('phone')} keyboardType="phone-pad" />
             </>
           ) : null}
           <Field label="Էլ. փոստ (մուտքի համար)" value={f.email} onChangeText={set('email')} keyboardType="email-address" />

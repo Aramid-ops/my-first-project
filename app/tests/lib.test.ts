@@ -4,7 +4,7 @@ import { test } from 'node:test';
 
 import { driverDays, earlierThanUsualMin } from '../src/lib/driver-stats';
 import { orderByNearest } from '../src/lib/route';
-import { decQty, incQty, isValidQty, nextDeliveryDate } from '../src/lib/rules';
+import { decQty, incQty, isValidPhone, isValidQty, nextDeliveryDate, normalizePhone } from '../src/lib/rules';
 import { matches, searchSkeleton, startsWithWord } from '../src/lib/search';
 import type { Product } from '../src/lib/types';
 
@@ -66,4 +66,16 @@ test('վարորդի օր. կանգառներ և «ավելի շուտ, քան �
   const days = driverDays(orders, 'Ա', [], 7, new Date('2026-11-26T18:00:00'));
   assert.equal(days[0].stops, 1);
   assert.equal(earlierThanUsualMin(days[0], days.slice(1).filter((d) => d.stops)), 60);
+});
+
+test('հեռախոսահամար. ձևաչափ և ստուգում', () => {
+  assert.equal(normalizePhone('+374 77 12-34-56'), '+37477123456');
+  assert.equal(normalizePhone('077 123456'), '+37477123456');
+  assert.equal(normalizePhone('77123456'), '+37477123456');
+  assert.equal(normalizePhone('+7 999 123 45 67'), '+79991234567');
+  assert.ok(isValidPhone('+374 77 123456'));
+  assert.ok(!isValidPhone('+374 77 1234')); // պակաս թիվ
+  assert.ok(!isValidPhone('+374 77 1234567')); // ավել թիվ
+  assert.ok(isValidPhone('+7 999 123 45 67'));
+  assert.ok(!isValidPhone('+374'));
 });
