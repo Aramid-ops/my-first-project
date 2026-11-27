@@ -31,7 +31,7 @@ export default function NewOrderForShop() {
         </Pressable>
         <Title sub="Նոր պատվեր խանութի անունից">{shop.name}</Title>
       </View>
-      <TextInput
+      <TextInput importantForAutofill="no"
         accessibilityLabel="Որոնել ապրանք"
         placeholder="Որոնել ապրանք կամ արտիկուլ"
         value={filter}

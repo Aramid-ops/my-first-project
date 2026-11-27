@@ -2,7 +2,7 @@
 import * as Clipboard from 'expo-clipboard';
 import { Image } from 'expo-image';
 import { useState, type ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View, type TextInputProps, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, radius, touch } from './theme';
@@ -156,6 +156,7 @@ export function Field({
   secure,
   keyboardType,
   placeholder,
+  autoComplete,
 }: {
   label: string;
   value: string;
@@ -163,8 +164,11 @@ export function Field({
   secure?: boolean;
   keyboardType?: 'default' | 'email-address' | 'phone-pad' | 'number-pad';
   placeholder?: string;
+  /** Հեռախոսի ավտոլրացում. լռելյայն՝ միայն էլ. փոստ, գաղտնաբառ, հեռախոս, մնացածը՝ անջատված */
+  autoComplete?: TextInputProps['autoComplete'];
 }) {
   const [hidden, setHidden] = useState(true);
+  const auto = autoComplete ?? (keyboardType === 'email-address' ? 'email' : secure ? 'password' : keyboardType === 'phone-pad' ? 'tel' : 'off');
   return (
     <View style={{ gap: 4 }}>
       <Text style={styles.muted}>{label}</Text>
@@ -176,6 +180,8 @@ export function Field({
           secureTextEntry={secure && hidden}
           keyboardType={keyboardType}
           placeholder={placeholder}
+          autoComplete={auto}
+          importantForAutofill={auto === 'off' ? 'no' : 'auto'}
           autoCapitalize={keyboardType === 'email-address' || secure ? 'none' : 'sentences'}
           autoCorrect={false}
           style={{ flex: 1, minHeight: 48, paddingHorizontal: 14, fontSize: 16, color: colors.text }}

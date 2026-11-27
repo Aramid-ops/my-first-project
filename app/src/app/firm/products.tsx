@@ -149,7 +149,7 @@ export default function FirmProducts() {
             <Button label="+ Նոր ապրանք" onPress={() => { setMsg(null); setDraft({ ...empty }); }} style={{ flex: 1 }} />
             <Button kind="outline" label="Ներմուծել CSV" onPress={importCsv} style={{ flex: 1 }} />
           </View>
-          <TextInput
+          <TextInput importantForAutofill="no"
             accessibilityLabel="Որոնել ապրանք"
             placeholder="Որոնել ապրանք կամ արտիկուլ"
             value={filter}

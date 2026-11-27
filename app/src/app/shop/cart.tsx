@@ -71,7 +71,7 @@ export default function Cart() {
               </Pressable>
             ) : (
               <View style={{ flexDirection: 'row', gap: 8 }}>
-                <TextInput
+                <TextInput importantForAutofill="no"
                   accessibilityLabel="Ցուցակի անուն"
                   placeholder="Օր.՝ Շաբաթական"
                   value={listName}

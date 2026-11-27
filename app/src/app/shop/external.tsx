@@ -64,7 +64,7 @@ export default function ExternalSuppliers() {
             </Pressable>
             {openId === e.id ? (
               <>
-                <TextInput
+                <TextInput importantForAutofill="no"
                   accessibilityLabel="Պատվերի տեքստ"
                   multiline
                   placeholder={'Օր.՝\nԿաթ 1 լ — 24 հատ\nՊանիր — 3 կգ'}

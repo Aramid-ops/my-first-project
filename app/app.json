@@ -53,6 +53,12 @@
         "projectId": "6c93e3f7-1ed6-4e36-a886-44708724a0c9"
       }
     },
-    "owner": "matakarar_am"
+    "owner": "matakarar_am",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/6c93e3f7-1ed6-4e36-a886-44708724a0c9"
+    }
   }
 }

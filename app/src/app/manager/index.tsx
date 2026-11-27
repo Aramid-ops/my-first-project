@@ -204,7 +204,7 @@ function OrderCard({ order: o, action, withInvoice }: { order: Order; action: Re
       ))}
       {withInvoice ? (
         <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-          <TextInput
+          <TextInput importantForAutofill="no"
             accessibilityLabel="Ֆակտուրայի համար"
             placeholder="Ֆակտուրա №"
             value={inv}

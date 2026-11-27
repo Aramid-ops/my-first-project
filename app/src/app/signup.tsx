@@ -183,12 +183,12 @@ export default function SignUp() {
         <Card style={{ gap: 12 }}>
           {kind !== 'employee' ? (
             <>
-              <Field label={kind === 'shop' ? 'Կոնտակտային անձ' : 'Ձեր անունը'} value={f.name} onChangeText={set('name')} />
+              <Field label={kind === 'shop' ? 'Կոնտակտային անձ' : 'Ձեր անունը'} value={f.name} onChangeText={set('name')} autoComplete="name" />
               <Field label="Հեռախոս" value={f.phone} onChangeText={set('phone')} keyboardType="phone-pad" placeholder="+374 ..." />
             </>
           ) : null}
           <Field label="Էլ. փոստ (մուտքի համար)" value={f.email} onChangeText={set('email')} keyboardType="email-address" />
-          <Field label="Գաղտնաբառ" value={f.password} onChangeText={set('password')} secure />
+          <Field label="Գաղտնաբառ" value={f.password} onChangeText={set('password')} secure autoComplete="new-password" />
         </Card>
 
         {msg ? <Text style={{ color: msg.ok ? colors.primary : colors.warnText, textAlign: 'center' }}>{msg.text}</Text> : null}

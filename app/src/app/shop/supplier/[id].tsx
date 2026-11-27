@@ -46,7 +46,7 @@ export default function SupplierCatalog() {
         ) : null}
       </View>
 
-      <TextInput
+      <TextInput importantForAutofill="no"
         value={filter}
         onChangeText={setFilter}
         placeholder="Որոնել այս մատակարարի մոտ"

@@ -60,7 +60,7 @@ export default function Search() {
         <Pressable accessibilityRole="button" accessibilityLabel="Հետ" onPress={() => router.back()} hitSlop={12}>
           <Text style={{ fontSize: 24 }}>‹</Text>
         </Pressable>
-        <TextInput
+        <TextInput importantForAutofill="no"
           autoFocus
           value={q}
           onChangeText={setQ}
