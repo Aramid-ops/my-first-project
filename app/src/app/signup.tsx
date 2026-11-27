@@ -4,6 +4,7 @@
 //   🏢 Ֆիրմա — իրավաբանական տվյալներ; կարող է «վերցնել» արդեն գրանցված մենեջերների ֆիրման
 //   🚚 Աշխատող — միայն հրավերի կոդ
 import { router } from 'expo-router';
+import { currentPoint, type Point } from '@/lib/geo';
 import { districts } from '@/lib/districts';
 import { isValidPhone, normalizePhone } from '@/lib/rules';
 import { useEffect, useState } from 'react';
@@ -30,6 +31,8 @@ const phoneOk = isValidPhone;
 
 export default function SignUp() {
   const [kind, setKind] = useState<Kind>('shop');
+  const [point, setPoint] = useState<Point | null>(null);
+  const [locating, setLocating] = useState(false);
   const [f, setF] = useState({
     name: '', phone: '', email: '', password: '',
     shop_name: '', legal_name: '', tax_id: '', district: '', address: '', contact_person: '',
@@ -59,7 +62,7 @@ export default function SignUp() {
   const metadata = () => {
     switch (kind) {
       case 'shop':
-        return { kind, name: f.shop_name, legal_name: f.legal_name || f.shop_name, tax_id: f.tax_id, city: 'Երևան', district: f.district, address: f.address, phone: normalizePhone(f.phone), email: f.email, contact_person: f.contact_person || f.name };
+        return { kind, name: f.shop_name, legal_name: f.legal_name || f.shop_name, tax_id: f.tax_id, city: 'Երևան', district: f.district, address: f.address, phone: normalizePhone(f.phone), email: f.email, contact_person: f.contact_person || f.name, lat: point?.lat ?? null, lng: point?.lng ?? null };
       case 'manager':
         return { kind, name: f.name, phone: normalizePhone(f.phone), firm_id: f.firm_id || null, firm_name: f.firm_name, category: f.category };
       case 'driver':
@@ -101,6 +104,20 @@ export default function SignUp() {
               <Text style={styles.muted}>Երևանի թաղամաս</Text>
               <Chips options={districts.map((d) => ({ value: d, label: d }))} value={f.district} onChange={set('district')} />
               <Field label="Հասցե" value={f.address} onChangeText={set('address')} />
+              {/* Տեղը՝ մոտակա մատակարարներին գտնելու և վարորդի երթուղու համար (ըստ ցանկության) */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <Text style={[styles.body, { flex: 1 }]}>{point ? '📍 Տեղը նշված է ✓' : '📍 Եթե հիմա խանութում եք՝ նշեք տեղը'}</Text>
+                <Button
+                  kind="outline"
+                  label={locating ? 'Որոշվում է…' : point ? 'Թարմացնել' : 'Նշել'}
+                  disabled={locating}
+                  onPress={async () => {
+                    setLocating(true);
+                    setPoint(await currentPoint());
+                    setLocating(false);
+                  }}
+                />
+              </View>
             </Card>
           </>
         ) : null}

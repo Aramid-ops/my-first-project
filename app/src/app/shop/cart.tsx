@@ -8,7 +8,7 @@ import { colors, radius } from '@/lib/theme';
 import { Button, Logo, Pill, Screen, styles, Title } from '@/lib/ui';
 
 export default function Cart() {
-  const { session, cart, products, firms, links, employees, sendCart, deliveryDate, priceOf, saveList } = useStore();
+  const { session, cart, products, firms, links, employees, sendCart, deliveryDate, priceOf, saveList, savedLists, applyList } = useStore();
   const [listName, setListName] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +35,16 @@ export default function Cart() {
         </Pressable>
         <Title>Զամբյուղ</Title>
       </View>
+      {/* Պահված ցուցակներ՝ մեկ սեղմումով լցնել զամբյուղը */}
+      {savedLists.length ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, marginBottom: 10 }} contentContainerStyle={{ gap: 8 }}>
+          {savedLists.map((l) => (
+            <Pressable key={l.id} accessibilityRole="button" onPress={() => applyList(l)} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.card }}>
+              <Text style={styles.body}>📋 {l.name} · {l.items.length}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      ) : null}
 
       {groups.length === 0 ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 }}>
