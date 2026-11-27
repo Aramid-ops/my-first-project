@@ -154,5 +154,27 @@ select pg_temp.as_user('00000000-0000-0000-0000-000000000031');
 select answer_job_invite((select id from job_invites where status = 'pending' limit 1), true);
 do $$ begin assert (select role from employees where user_id = '00000000-0000-0000-0000-000000000031') = 'driver', 'պետք է դառնար վարորդ'; end $$;
 
+-- 13. Տեքստային (թելադրված) պատվեր. խանութ → իր մենեջերը; այլ ֆիրման չի տեսնում
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select firm_id as karen_firm from employees where user_id = '00000000-0000-0000-0000-000000000002' \gset
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000001');   -- Կետ
+select send_text_order(:'karen_firm', '2 արկղ կոլա, 10 կաթ') as tord \gset
+select pg_temp.as_user('00000000-0000-0000-0000-000000000002');   -- Կարեն
+do $$ begin assert (select count(*) from text_orders) = 1, 'մենեջերը պետք է տեսներ տեքստային պատվերը'; end $$;
+select finish_text_order(:'tord');
+do $$ begin assert (select status from text_orders) = 'done', 'պետք է լիներ done'; end $$;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000020');   -- Կարո (այլ ֆիրմա)
+do $$ begin assert (select count(*) from text_orders) = 0, 'այլ ֆիրման չպետք է տեսներ'; end $$;
+do $$ begin
+  begin perform finish_text_order((select id from text_orders limit 1)); exception when others then null; end;
+end $$;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000030');   -- կողմնակի
+do $$ begin
+  begin insert into text_orders (shop_id, firm_id, text) values (gen_random_uuid(), gen_random_uuid(), 'x'); raise exception 'պետք է մերժվեր';
+  exception when insufficient_privilege then null; end;
+end $$;
+
 reset role;
 \echo ✅ Բազայի բոլոր ստուգումներն անցան
