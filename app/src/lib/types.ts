@@ -17,6 +17,12 @@ export interface Firm {
   minOrderAmount?: number;
   /** 'unclaimed' = ֆիրման ինքը դեռ չի գրանցվել, աշխատում են նրա մենեջերները */
   status?: 'active' | 'unclaimed';
+  /** Մեր մասին (կարճ), կոնտակտ և իրավաբանական տվյալներ՝ «Բոլոր մատակարարները» էջի համար */
+  description?: string;
+  phone?: string;
+  address?: string;
+  legalName?: string;
+  taxId?: string;
 }
 
 export type EmployeeRole = 'admin' | 'manager' | 'staff' | 'driver';

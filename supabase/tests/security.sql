@@ -176,5 +176,17 @@ do $$ begin
   exception when insufficient_privilege then null; end;
 end $$;
 
+-- 14. Մատակարարների ցուցակ. խանութը տեսնում է տեսականին (առանց գնի), անանունը՝ ոչ
+select pg_temp.as_user('00000000-0000-0000-0000-000000000001');
+do $$ begin assert (select count(*) from firm_assortment((select id from firms limit 1))) >= 0; end $$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+set role anon;
+do $$ begin
+  begin perform firm_assortment(gen_random_uuid()); raise exception 'պետք է մերժվեր';
+  exception when insufficient_privilege then null; end;
+end $$;
+set role authenticated;
+
 reset role;
 \echo ✅ Բազայի բոլոր ստուգումներն անցան

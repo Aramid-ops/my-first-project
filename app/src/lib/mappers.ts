@@ -29,6 +29,11 @@ export const mapFirm = (r: any): Firm => ({
   featuredUntil: r.featured_until ?? undefined,
   minOrderAmount: num(r.min_order_amount),
   status: r.status ?? 'active',
+  description: r.description ?? undefined,
+  phone: r.phone ?? undefined,
+  address: r.address ?? undefined,
+  legalName: r.legal_name ?? undefined,
+  taxId: r.tax_id ?? undefined,
 });
 
 export const mapEmployee = (r: any): Employee => ({

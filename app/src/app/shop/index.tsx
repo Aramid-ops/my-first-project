@@ -13,7 +13,7 @@ import { colors } from '@/lib/theme';
 import { Button, Logo, Screen, styles, Title } from '@/lib/ui';
 
 export default function ShopHome() {
-  const { session, shops, links, firms, employees, cart, orders, signOut, deliveryDate, savedLists, applyList, requestJoin } = useStore();
+  const { session, shops, links, firms, employees, cart, orders, signOut, deliveryDate, savedLists, applyList } = useStore();
   // Հավելվածից դուրս մատակարարները (WhatsApp / Viber / SMS) նույնպես «Իմ մատակարարները»-ում են
   const [ext, setExt] = useState<{ id: string; name: string; category: string | null; channel: string }[]>([]);
   useFocusEffect(
@@ -70,13 +70,13 @@ export default function ShopHome() {
                 <Pressable
                   key={f.id}
                   accessibilityRole="button"
-                  onPress={() => (st === 'active' ? router.push(`/shop/supplier/${f.id}`) : st ? undefined : requestJoin(f.id))}
+                  onPress={() => router.push(st === 'active' ? `/shop/supplier/${f.id}` : `/shop/firm/${f.id}`)}
                   style={[styles.card, { width: '47%', flexGrow: 1, alignItems: 'flex-start', gap: 8 }]}>
                   <Logo name={f.name} uri={f.logoUrl} bg={f.color.bg} fg={f.color.fg} size={48} />
                   <Text style={styles.strong}>{f.name}</Text>
                   <Text style={styles.muted}>{f.category}</Text>
                   <Text style={{ fontSize: 13, fontWeight: '600', color: st === 'active' ? colors.primary : colors.infoText }}>
-                    {st === 'active' ? 'Պատվիրել →' : st === 'pending' ? 'Հայտը ուղարկված է' : '+ Միանալ'}
+                    {st === 'active' ? 'Պատվիրել →' : st === 'pending' ? 'Հայտը ուղարկված է' : 'Դիտել →'}
                   </Text>
                 </Pressable>
               );
@@ -95,6 +95,18 @@ export default function ShopHome() {
             <Text style={styles.muted}>{l.items.length} ապրանք · Զամբյուղ →</Text>
           </Pressable>
         ))}
+
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push('/shop/suppliers')}
+          style={({ pressed }) => [styles.card, { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.dark, borderColor: colors.dark, opacity: pressed ? 0.85 : 1 }]}>
+          <Text style={{ fontSize: 22 }}>🏪</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 16 }}>Բոլոր մատակարարները</Text>
+            <Text style={{ color: colors.onDarkMuted }}>{firms.length} մատակարար · գտեք նորերին և միացեք</Text>
+          </View>
+          <Text style={{ fontSize: 20, color: '#FFFFFF' }}>›</Text>
+        </Pressable>
 
         {myLinks.length || ext.length ? <Text style={[styles.strong, { fontSize: 14, color: colors.textMuted }]}>Իմ մատակարարները</Text> : null}
         {myLinks.length === 0 && pending.length === 0 && ext.length === 0 ? (

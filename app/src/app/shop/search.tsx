@@ -95,7 +95,7 @@ export default function Search() {
             <Pressable
               key={f.id}
               accessibilityRole="button"
-              onPress={() => (link?.status === 'active' ? router.push(`/shop/supplier/${f.id}`) : undefined)}
+              onPress={() => router.push(link?.status === 'active' ? `/shop/supplier/${f.id}` : `/shop/firm/${f.id}`)}
               style={[styles.card, { flexDirection: 'row', alignItems: 'center', gap: 12 }]}>
               <Logo name={f.name} uri={f.logoUrl} bg={f.color.bg} fg={f.color.fg} size={40} />
               <View style={{ flex: 1 }}>
