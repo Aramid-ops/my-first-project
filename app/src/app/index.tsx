@@ -1,4 +1,5 @@
 // Մուտք էլ. փոստով և գաղտնաբառով (Supabase Auth)
+import { Image } from 'expo-image';
 import { Link, Redirect, router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
@@ -39,8 +40,14 @@ export default function SignIn() {
     <Screen>
       <View style={{ flex: 1, justifyContent: 'center', gap: 16 }}>
         <View style={{ gap: 6, marginBottom: 8 }}>
-          <Text style={{ fontSize: 34, fontWeight: '700', color: colors.dark }}>Մատակարար</Text>
-          <Text style={styles.muted}>Մուտք գործեք ձեր հաշվով</Text>
+          <Image
+            source={require('../../assets/images/splash-icon.png')}
+            tintColor={colors.dark}
+            contentFit="contain"
+            accessibilityLabel="Մատակարար"
+            style={{ width: 110, height: 110, alignSelf: 'center', marginBottom: 12 }}
+          />
+          <Text style={[styles.muted, { textAlign: 'center' }]}>Մուտք գործեք ձեր հաշվով</Text>
         </View>
 
         {session?.kind === 'none' ? (
