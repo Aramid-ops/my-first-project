@@ -174,7 +174,7 @@ export default function Search() {
 
         {q.trim() && !loading && hits.length === 0 && firmHits.length === 0 ? <Text style={styles.muted}>Ոչինչ չգտնվեց</Text> : null}
         {q.trim() && !loading ? (
-          <Pressable accessibilityRole="button" onPress={() => router.push('/shop/requests')} style={[styles.card, { marginTop: 4 }]}>
+          <Pressable accessibilityRole="button" onPress={() => router.push('/market')} style={[styles.card, { marginTop: 4 }]}>
             <Text style={styles.strong}>📣 Չգտա՞ք հարմարը</Text>
             <Text style={styles.muted}>Գրեք «Փնտրում եմ {q.trim()}», և մատակարարները կուղարկեն առաջարկ →</Text>
           </Pressable>

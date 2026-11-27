@@ -1,6 +1,6 @@
 import { Redirect, router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { colorFor } from '@/lib/mappers';
 import { supabase } from '@/lib/supabase';
@@ -9,12 +9,13 @@ import { deliveryLabel } from '@/lib/rules';
 import { ChatButton, PlatformLink } from '@/components/chat-button';
 import { InviteButton } from '@/components/invite-button';
 import { useStore } from '@/lib/store';
-import { colors } from '@/lib/theme';
+import { colors, radius } from '@/lib/theme';
 import { Button, Logo, Screen, styles, Title } from '@/lib/ui';
 
 export default function ShopHome() {
   const { session, shops, links, firms, employees, cart, orders, signOut, deliveryDate, savedLists, applyList } = useStore();
   // Հավելվածից դուրս մատակարարները (WhatsApp / Viber / SMS) նույնպես «Իմ մատակարարները»-ում են
+  const [need, setNeed] = useState('');
   const [ext, setExt] = useState<{ id: string; name: string; category: string | null; channel: string }[]>([]);
   useFocusEffect(
     useCallback(() => {
@@ -59,6 +60,24 @@ export default function ShopHome() {
         <Text style={{ fontSize: 16 }}>🔍</Text>
         <Text style={styles.muted}>Ապրանք, մատակարար կամ արտիկուլ</Text>
       </Pressable>
+      <TextInput
+        importantForAutofill="no"
+        accessibilityLabel="Ինչ է ձեզ պետք"
+        placeholder="📣 Ի՞նչ է ձեզ պետք (օր.՝ ձու)"
+        value={need}
+        onChangeText={setNeed}
+        returnKeyType="send"
+        onSubmitEditing={async () => {
+          const t = need.trim();
+          if (t.length < 2) return;
+          const { error } = await supabase.from('supply_requests').insert({ shop_id: shop.id, text: t });
+          if (!error) {
+            setNeed('');
+            router.push('/market');
+          }
+        }}
+        style={{ minHeight: 52, borderWidth: 2, borderColor: colors.dark, borderRadius: radius.lg, paddingHorizontal: 16, fontSize: 16, backgroundColor: colors.card, color: colors.text, marginBottom: 12 }}
+      />
 
       <ScrollView contentContainerStyle={{ gap: 10, paddingBottom: 24 }}>
         {featured.length ? <Text style={[styles.strong, { fontSize: 14, color: colors.textMuted }]}>Առաջարկվող մատակարարներ</Text> : null}
@@ -116,12 +135,12 @@ export default function ShopHome() {
 
         <Pressable
           accessibilityRole="button"
-          onPress={() => router.push('/shop/requests')}
+          onPress={() => router.push('/market')}
           style={({ pressed }) => [styles.card, { flexDirection: 'row', alignItems: 'center', gap: 12, opacity: pressed ? 0.8 : 1 }]}>
-          <Text style={{ fontSize: 22 }}>📣</Text>
+          <Text style={{ fontSize: 16, color: '#D2333F' }}>●</Text>
           <View style={{ flex: 1 }}>
-            <Text style={styles.strong}>Փնտրում եմ մատակարար</Text>
-            <Text style={styles.muted}>Գրեք ինչ է պետք, մատակարարները կուղարկեն առաջարկ</Text>
+            <Text style={styles.strong}>Live շուկա</Text>
+            <Text style={styles.muted}>Մատակարարների թարմ առաջարկները և խանութների հարցումները</Text>
           </View>
           <Text style={{ fontSize: 20, color: colors.textMuted }}>›</Text>
         </Pressable>

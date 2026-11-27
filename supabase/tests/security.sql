@@ -246,5 +246,23 @@ do $$ begin
   exception when insufficient_privilege then null; end;
 end $$;
 
+-- 18. Live շուկա. մատակարարի առաջարկ → խանութը «Հետաքրքրված եմ» → միայն այդ ֆիրման է տեսնում ով
+select pg_temp.as_user('00000000-0000-0000-0000-000000000020');   -- Կարո
+insert into supplier_deals (firm_id, employee_id, text, price) values ((my_employee()).firm_id, (my_employee()).id, 'Ձու C0 թարմ', 60);
+do $$ begin assert (select category from supplier_deals limit 1) = 'Ձու', 'առաջարկի կատեգորիան'; end $$;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000001');   -- Կետ
+do $$ begin assert (select count(*) from live_deals()) = 1, 'խանութը պետք է տեսներ առաջարկը'; end $$;
+do $$ begin assert (select shop_name from live_requests() limit 1) is not null, 'իր հարցման անունը'; end $$;
+insert into deal_interests (deal_id, shop_id) select d.id, m.shop_id from supplier_deals d, shop_members m where m.user_id = auth.uid();
+select pg_temp.as_user('00000000-0000-0000-0000-000000000002');   -- Կարեն (մրցակից)
+do $$ begin assert (select count(*) from deal_interests) = 0, 'մրցակիցը չպետք է տեսներ'; end $$;
+do $$ begin assert (select count(*) from deal_interested_shops((select id from supplier_deals limit 1))) = 0, 'մրցակիցը չպետք է տեսներ ով'; end $$;
+do $$ begin
+  begin insert into supplier_deals (firm_id, employee_id, text) values ((select firm_id from supplier_deals limit 1), (my_employee()).id, 'կեղծ'); raise exception 'պետք է մերժվեր';
+  exception when insufficient_privilege then null; end;
+end $$;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000020');
+do $$ begin assert (select count(*) from deal_interested_shops((select id from supplier_deals limit 1))) = 1, 'ֆիրման պետք է տեսներ ով է հետաքրքրվել'; end $$;
+
 reset role;
 \echo ✅ Բազայի բոլոր ստուգումներն անցան

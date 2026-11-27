@@ -80,8 +80,8 @@ export default function Inbox() {
           </Pressable>
         ) : null}
         {isManager ? (
-          <Pressable accessibilityRole="button" onPress={() => router.push('/firm/requests')} hitSlop={8}>
-            <Text style={{ color: colors.primary, fontWeight: '600' }}>📣 Խանութները փնտրում են մատակարար →</Text>
+          <Pressable accessibilityRole="button" onPress={() => router.push('/market')} hitSlop={8}>
+            <Text style={{ color: colors.primary, fontWeight: '600' }}><Text style={{ color: '#D2333F' }}>●</Text> Live շուկա. խանութները ուզում են →</Text>
           </Pressable>
         ) : null}
         {me.role === 'staff' || (isManager && firm.status === 'unclaimed') ? (
