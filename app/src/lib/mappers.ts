@@ -1,6 +1,6 @@
 // Բազայի տողերից → հավելվածի տիպեր (snake_case → camelCase)։
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { Debt, DriverProfile, Employee, Firm, Issue, Line, Order, OrderStatus, Payment, Product, SavedList, Shop, ShopFirmLink, Team, Unit, Weekday } from './types';
+import type { Debt, DriverProfile, Employee, Firm, Issue, Line, Order, OrderStatus, Payment, Product, SavedList, Shop, ShopFirmLink, Team, TextOrder, Unit, Weekday } from './types';
 
 const palette = [
   { bg: '#E2E8F4', fg: '#2C4A8A' },
@@ -165,4 +165,14 @@ export const mapDriverProfile = (r: any): DriverProfile => ({
   refrigerated: !!r.refrigerated,
   verificationStatus: r.verification_status ?? 'none',
   verificationNote: r.verification_note ?? undefined,
+});
+
+export const mapTextOrder = (r: any): TextOrder => ({
+  id: r.id,
+  shopId: r.shop_id,
+  firmId: r.firm_id,
+  managerId: r.manager_id ?? undefined,
+  text: r.text,
+  status: r.status,
+  createdAt: r.created_at,
 });

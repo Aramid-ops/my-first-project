@@ -75,3 +75,9 @@ export function formatTime(iso: string): string {
   const d = new Date(iso);
   return `${`${d.getHours()}`.padStart(2, '0')}:${`${d.getMinutes()}`.padStart(2, '0')}`;
 }
+
+/** «27.11 · 18:40» */
+export function formatDayTime(iso: string): string {
+  const d = new Date(iso);
+  return `${`${d.getDate()}`.padStart(2, '0')}.${`${d.getMonth() + 1}`.padStart(2, '0')} · ${formatTime(iso)}`;
+}

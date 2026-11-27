@@ -44,6 +44,7 @@ export function firmActions(c: ActionCtx): FirmActions {
     setLinkManager: (shopId, firmId, managerId) => link(shopId, firmId, { manager_id: managerId }),
     setLineDriver: (lineId, driverId) => line(lineId, { driver_id: driverId }),
     setLineCutoff: (lineId, cutoff) => line(lineId, { order_cutoff: cutoff }),
+    finishTextOrder: (id) => run(c, supabase.rpc('finish_text_order', { p_id: id })),
     toggleTeamMember: (teamId, employeeId) => {
       const inTeam = c.teams.find((x) => x.id === teamId)?.memberIds.includes(employeeId);
       const tm = supabase.from('team_members');

@@ -1,7 +1,7 @@
 // Բազայից ամեն ինչի բեռնումը մեկ տեղում։ Առանց ինտերնետի՝ վերջին հաջողված պատկերը հեռախոսից։
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { mapDebt, mapDriverProfile, mapEmployee, mapFirm, mapIssue, mapLine, mapLink, mapOrder, mapPayment, mapProduct, mapSavedList, mapShop, mapTeams } from './mappers';
+import { mapDebt, mapDriverProfile, mapEmployee, mapFirm, mapIssue, mapLine, mapLink, mapOrder, mapPayment, mapProduct, mapSavedList, mapShop, mapTeams, mapTextOrder } from './mappers';
 import type { Data, Session } from './store-types';
 import { supabase } from './supabase';
 
@@ -13,6 +13,7 @@ export const emptyData: Data = {
   links: [],
   products: [],
   orders: [],
+  textOrders: [],
   teams: [],
   lines: [],
   issues: [],
@@ -57,9 +58,15 @@ export async function loadData(uid: string): Promise<Data | null> {
     supabase.from('driver_profiles').select('*').eq('user_id', uid).maybeSingle(),
     supabase.from('employees').select('id, role').eq('user_id', uid).maybeSingle(),
     supabase.from('shop_members').select('shop_id').eq('user_id', uid).maybeSingle(),
+    supabase
+      .from('text_orders')
+      .select('*')
+      .gte('created_at', new Date(Date.now() - 14 * 86400000).toISOString())
+      .order('created_at', { ascending: false })
+      .limit(100),
   ]);
   if (res.some((r) => r.error)) return fromCache(uid);
-  const [f, e, s, l, p, o, tm, tmm, ln, iss, dbt, pay, pa, dp, me, member] = res;
+  const [f, e, s, l, p, o, tm, tmm, ln, iss, dbt, pay, pa, dp, me, member, txt] = res;
 
   const lines = (ln.data ?? []).map(mapLine);
   const session: Session = member.data
@@ -82,6 +89,7 @@ export async function loadData(uid: string): Promise<Data | null> {
     }),
     products: (p.data ?? []).map(mapProduct),
     orders: (o.data ?? []).map(mapOrder),
+    textOrders: (txt.data ?? []).map(mapTextOrder),
     teams: mapTeams(tm.data ?? [], tmm.data ?? []),
     lines,
     issues: (iss.data ?? []).map(mapIssue),

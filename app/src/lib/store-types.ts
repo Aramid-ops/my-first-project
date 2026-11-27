@@ -1,7 +1,7 @@
 // Հավելվածի վիճակի տիպերը (store.tsx-ի և actions/*-ի ընդհանուր մասը)։
 import type { Dispatch, SetStateAction } from 'react';
 
-import type { Debt, DriverProfile, Employee, EmployeeRole, Firm, Issue, IssueKind, Line, Order, Payment, Product, SavedList, Shop, ShopFirmLink, Team } from './types';
+import type { Debt, DriverProfile, Employee, EmployeeRole, Firm, Issue, IssueKind, Line, Order, Payment, Product, SavedList, Shop, ShopFirmLink, Team, TextOrder } from './types';
 
 export type Session =
   | { kind: 'shop'; shopId: string }
@@ -19,6 +19,7 @@ export interface Data {
   links: ShopFirmLink[];
   products: Product[];
   orders: Order[];
+  textOrders: TextOrder[];
   teams: Team[];
   lines: Line[];
   issues: Issue[];
@@ -77,6 +78,8 @@ export interface ShopActions {
   requestJoin: (firmId: string) => Result;
   updateShop: (patch: Record<string, string>) => Result;
   markPaid: (firmId: string, amount: number, note: string) => Result;
+  /** Գրված կամ թելադրված պատվեր՝ մենեջերին */
+  sendTextOrder: (firmId: string, text: string) => Result;
 }
 
 export interface FirmActions {
@@ -91,6 +94,7 @@ export interface FirmActions {
   setLineDriver: (lineId: string, driverId: string | null) => Result;
   setLineCutoff: (lineId: string, cutoff: string | null) => Result;
   toggleTeamMember: (teamId: string, employeeId: string) => Result;
+  finishTextOrder: (id: string) => Result;
 }
 
 export interface Store extends Omit<Data, 'prices'>, OrderActions, CartActions, ShopActions, FirmActions {

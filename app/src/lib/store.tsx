@@ -61,6 +61,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const ch = supabase
       .channel('orders-live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => reload())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'text_orders' }, () => reload())
       .subscribe();
     return () => {
       supabase.removeChannel(ch);

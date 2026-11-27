@@ -179,6 +179,17 @@ export interface OrderEvent {
   lng?: number;
 }
 
+/** Տեքստային (թելադրված) պատվեր. խանութը գրում է ազատ տեքստով, մենեջերը ստեղծում է իսկական պատվերը */
+export interface TextOrder {
+  id: string;
+  shopId: string;
+  firmId: string;
+  managerId?: string;
+  text: string;
+  status: 'new' | 'done';
+  createdAt: string;
+}
+
 export interface Order {
   id: string;
   shopId: string;

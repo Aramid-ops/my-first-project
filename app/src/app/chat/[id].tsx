@@ -60,7 +60,7 @@ export default function ChatThread() {
           ) : null}
           <TextInput importantForAutofill="no"
             accessibilityLabel="Հաղորդագրություն"
-            placeholder="Գրեք…"
+            placeholder="Գրեք կամ թելադրեք 🎤…"
             value={text}
             onChangeText={setText}
             multiline

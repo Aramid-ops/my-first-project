@@ -10,8 +10,9 @@ import { colors, radius } from '@/lib/theme';
 import { Button, Screen, styles, Title } from '@/lib/ui';
 
 export default function NewOrderForShop() {
-  const { shopId } = useLocalSearchParams<{ shopId: string }>();
-  const { session, employees, shops, products, placeOrderForShop } = useStore();
+  const { shopId, text } = useLocalSearchParams<{ shopId: string; text?: string }>();
+  const { session, employees, shops, products, textOrders, placeOrderForShop, finishTextOrder } = useStore();
+  const textOrder = textOrders.find((t) => t.id === text);
   const [qty, setQty] = useState<Record<string, number>>({});
   const [filter, setFilter] = useState('');
   const [busy, setBusy] = useState(false);
@@ -31,6 +32,12 @@ export default function NewOrderForShop() {
         </Pressable>
         <Title sub="Նոր պատվեր խանութի անունից">{shop.name}</Title>
       </View>
+      {textOrder ? (
+        <View style={[styles.card, { marginBottom: 10, gap: 4, borderColor: colors.primary }]}>
+          <Text style={styles.muted}>📝 Խանութի տեքստը</Text>
+          <Text style={[styles.body, { fontSize: 16 }]}>{textOrder.text}</Text>
+        </View>
+      ) : null}
       <TextInput importantForAutofill="no"
         accessibilityLabel="Որոնել ապրանք"
         placeholder="Որոնել ապրանք կամ արտիկուլ"
@@ -72,7 +79,11 @@ export default function NewOrderForShop() {
             const e = await placeOrderForShop(shop.id, items);
             setBusy(false);
             if (e) setErr(e);
-            else router.back();
+            else {
+              if (textOrder) await finishTextOrder(textOrder.id);
+              if (router.canGoBack()) router.back();
+              else router.replace('/manager');
+            }
           }}
         />
       </View>

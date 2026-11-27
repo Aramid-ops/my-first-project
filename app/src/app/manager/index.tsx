@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { ForwardPicker } from '@/components/forward-picker';
-import { deliveryLabel, formatAmd, formatQty, formatTime } from '@/lib/rules';
+import { deliveryLabel, formatAmd, formatDayTime, formatQty, formatTime } from '@/lib/rules';
 import { ChatButton, PlatformLink } from '@/components/chat-button';
 import { InviteButton } from '@/components/invite-button';
 import { useStore } from '@/lib/store';
@@ -41,11 +41,13 @@ export default function Inbox() {
   const requests = s.links.filter((l) => l.firmId === me.firmId && l.status === 'pending');
   const myLinks = s.links.filter((l) => l.managerId === me.id && l.status === 'active');
   const pendingPayments = s.payments.filter((p) => p.firmId === me.firmId && !p.confirmed);
+  // Գրված / թելադրված պատվերներ իմ խանութներից (ղեկավարը տեսնում է բոլորը)
+  const textOrders = s.textOrders.filter((t) => t.status === 'new' && t.firmId === me.firmId && (t.managerId === me.id || me.role === 'admin'));
   const recentIssues = s.issues.filter((i) => s.orders.some((o) => o.id === i.orderId) && Date.now() - new Date(i.createdAt).getTime() < 3 * 86400000);
 
   const tabs: { value: Tab; label: string; hint?: string }[] = isManager
     ? [
-        { value: 'orders', label: 'Պատվերներ', hint: `${waiting.length}` },
+        { value: 'orders', label: 'Պատվերներ', hint: `${waiting.length + textOrders.length}` },
         { value: 'requests', label: 'Հայտեր', hint: requests.length ? `${requests.length}` : undefined },
         { value: 'shops', label: 'Իմ խանութները' },
       ]
@@ -98,6 +100,19 @@ export default function Inbox() {
                 </View>
               );
             })}
+            {textOrders.map((t) => (
+              <View key={t.id} style={[styles.card, { gap: 8, borderColor: colors.primary }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
+                  <Text style={[styles.strong, { flex: 1 }]}>📝 {s.shops.find((x) => x.id === t.shopId)?.name}</Text>
+                  <Text style={styles.muted}>{formatDayTime(t.createdAt)}</Text>
+                </View>
+                <Text style={[styles.body, { fontSize: 16 }]}>{t.text}</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <Button kind="outline" label="Արված է ✓" onPress={() => s.finishTextOrder(t.id)} style={{ flex: 1 }} />
+                  <Button label="Ձևակերպել" onPress={() => router.push(`/manager/new-order/${t.shopId}?text=${t.id}`)} style={{ flex: 1 }} />
+                </View>
+              </View>
+            ))}
             <Text style={[styles.strong, { fontSize: 15 }]}>Նոր պատվերներ · {waiting.length}</Text>
             {waiting.length === 0 ? <Text style={styles.muted}>Նոր պատվեր չկա</Text> : null}
             {waiting.map((o) => (

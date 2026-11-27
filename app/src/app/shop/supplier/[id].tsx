@@ -55,6 +55,17 @@ export default function SupplierCatalog() {
         autoCapitalize="none"
         style={{ minHeight: 46, borderWidth: 1, borderColor: colors.borderStrong, borderRadius: radius.md, paddingHorizontal: 14, fontSize: 15, backgroundColor: colors.card, marginBottom: 10, color: colors.text }}
       />
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.push(`/shop/dictate/${firm.id}`)}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: radius.md, backgroundColor: colors.primarySoft, marginBottom: 10 }}>
+        <Text style={{ fontSize: 20 }}>🎤</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.strong}>Գրել կամ թելադրել պատվերը</Text>
+          <Text style={styles.muted}>Ասեք ձայնով, ստուգեք տեքստը և ուղարկեք մենեջերին</Text>
+        </View>
+        <Text style={{ fontSize: 18, color: colors.textMuted }}>›</Text>
+      </Pressable>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 10, paddingBottom: 24 }}>
         {list.map((p) => {
           const qty = cart[p.id] ?? 0;

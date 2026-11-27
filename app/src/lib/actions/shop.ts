@@ -9,6 +9,7 @@ export function shopActions(c: ActionCtx): ShopActions {
   return {
     requestJoin: (firmId) => run(c, supabase.rpc('request_join', { p_firm: firmId })),
     updateShop: (patch) => (shopId ? run(c, supabase.from('shops').update(patch).eq('id', shopId)) : notShop()),
+    sendTextOrder: (firmId, text) => run(c, supabase.rpc('send_text_order', { p_firm: firmId, p_text: text })),
     markPaid: (firmId, amount, note) =>
       shopId ? run(c, supabase.from('payments').insert({ shop_id: shopId, firm_id: firmId, amount, note: note || null })) : notShop(),
   };
