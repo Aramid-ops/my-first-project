@@ -137,8 +137,10 @@ export default function ShopHome() {
               style={({ pressed }) => [styles.card, { flexDirection: 'row', alignItems: 'center', gap: 14, opacity: pressed ? 0.8 : 1 }]}>
               <Logo name={e.name} bg={c.bg} fg={c.fg} size={56} />
               <View style={{ flex: 1, gap: 3 }}>
-                <Text style={styles.strong}>{e.name}</Text>
-                {e.category ? <Text style={styles.muted}>{e.category}</Text> : null}
+                <Text style={styles.strong}>
+                  {e.name}
+                  {e.category ? <Text style={{ fontWeight: '400', color: colors.textMuted }}> · {e.category}</Text> : null}
+                </Text>
                 <Text style={{ fontSize: 13, fontWeight: '600', color: colors.infoText }}>
                   Պատվեր՝ {e.channel === 'whatsapp' ? 'WhatsApp' : e.channel === 'viber' ? 'Viber' : 'SMS'}-ով
                 </Text>

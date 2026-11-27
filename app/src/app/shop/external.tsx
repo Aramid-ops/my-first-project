@@ -71,7 +71,7 @@ export default function ExternalSuppliers() {
   const send = async (e: Ext) => {
     const body = text.trim();
     // նախ պահում ենք պատվերների մեջ, հետո բացում հաղորդագրությունը
-    await supabase.from('external_orders').insert({ shop_id: shop.id, supplier_id: e.id, supplier_name: e.name, channel: e.channel, text: body });
+    await supabase.from('external_orders').insert({ shop_id: shop.id, supplier_id: e.id, supplier_name: e.category ? `${e.name} · ${e.category}` : e.name, channel: e.channel, text: body });
     await openMessage(e, `Պատվեր · ${shop.name}${shop.address ? `, ${shop.address}` : ''}\n\n${body}\n\n— Մատակարար հավելված`);
     setText('');
     setOpenId(null);
@@ -117,8 +117,10 @@ export default function ExternalSuppliers() {
             <View key={e.id} style={[styles.card, { gap: 8 }]}>
               <Pressable accessibilityRole="button" onPress={() => { setOpenId(openId === e.id ? null : e.id); setText(''); setSentMsg(null); }} style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.strong}>{e.name}</Text>
-                  {e.category ? <Text style={styles.body}>{e.category}</Text> : null}
+                  <Text style={styles.strong}>
+                    {e.name}
+                    {e.category ? <Text style={{ fontWeight: '400', color: colors.textMuted }}> · {e.category}</Text> : null}
+                  </Text>
                   <Text style={styles.muted}>
                     {e.phone} · {channelLabel[e.channel]}
                   </Text>
