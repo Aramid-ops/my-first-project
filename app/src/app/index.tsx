@@ -1,7 +1,9 @@
 // Մուտք էլ. փոստով և գաղտնաբառով (Supabase Auth)
 import { Link, Redirect, router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
+
+import { BrandSplash } from '@/components/brand-splash';
 
 import { useStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
@@ -15,6 +17,10 @@ export default function SignIn() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [claimPending, setClaimPending] = useState(false);
+  // մուտքից հետո, երբ տվյալները եկան՝ բրենդի էկրանը փակվում է
+  useEffect(() => {
+    if (session) setBusy(false);
+  }, [session]);
   useEffect(() => {
     if (session?.kind !== 'none') return;
     supabase.from('firm_claims').select('status').eq('status', 'pending').then(({ data }) => setClaimPending(!!data?.length));
@@ -22,15 +28,8 @@ export default function SignIn() {
     supabase.from('platform_admins').select('user_id').maybeSingle().then(({ data }) => { if (data) router.replace('/platform'); });
   }, [session]);
 
-  if (!ready) {
-    return (
-      <Screen>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator color={colors.dark} />
-        </View>
-      </Screen>
-    );
-  }
+  // բեռնվելիս և մուտք գործելիս՝ բրենդի էկրանը
+  if (!ready || (busy && !session)) return <BrandSplash />;
   if (session?.kind === 'shop') return <Redirect href="/shop" />;
   if (session?.kind === 'driverSelf') return <Redirect href="/me" />;
   if (session?.kind === 'employee')
@@ -66,8 +65,10 @@ export default function SignIn() {
                 setBusy(true);
                 setError(null);
                 const err = await signIn(email, password);
-                setBusy(false);
-                if (err) setError('Սխալ էլ. փոստ կամ գաղտնաբառ');
+                if (err) {
+                  setBusy(false);
+                  setError('Սխալ էլ. փոստ կամ գաղտնաբառ');
+                }
               }}
             />
             <Link href="/signup" style={{ textAlign: 'center', color: colors.primary, fontWeight: '600', paddingVertical: 8 }}>

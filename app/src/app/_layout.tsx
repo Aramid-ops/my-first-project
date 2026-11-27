@@ -1,16 +1,36 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
+import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { StoreProvider } from '@/lib/store';
+import { BrandSplash } from '@/components/brand-splash';
+import { StoreProvider, useStore } from '@/lib/store';
 import { colors } from '@/lib/theme';
+
+/** Բացելիս բրենդի էկրանը մնում է առնվազն 1.2 վրկ կամ մինչև տվյալները բեռնվեն */
+function App() {
+  const { ready } = useStore();
+  const [minDone, setMinDone] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setMinDone(true), 1200);
+    return () => clearTimeout(t);
+  }, []);
+  const splash = !ready || !minDone;
+  return (
+    <View style={{ flex: 1 }}>
+      <StatusBar style={splash ? 'light' : 'dark'} />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }} />
+      <BrandSplash visible={splash} />
+    </View>
+  );
+}
 
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <StoreProvider>
-        <StatusBar style="dark" />
-        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }} />
+        <App />
       </StoreProvider>
     </SafeAreaProvider>
   );
