@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { Text } from 'react-native';
 
-import { categories } from '@/lib/categories';
 import { ALL_YEREVAN, districts, regions } from '@/lib/districts';
 import { normalizePhone } from '@/lib/rules';
 import { useStore } from '@/lib/store';
@@ -12,7 +11,7 @@ import type { Firm } from '@/lib/types';
 import { Button, Chips, Field, MultiChips, styles } from '@/lib/ui';
 
 export function FirmProfile({ firm }: { firm: Firm }) {
-  const { products, updateFirm } = useStore();
+  const { products, updateFirm, categories } = useStore();
   const init = () => ({
     categories: firm.categories ?? [],
     areas: firm.serviceAreas ?? [],
@@ -37,7 +36,7 @@ export function FirmProfile({ firm }: { firm: Firm }) {
           Ձեր ապրանքներից՝ {suggest.join(', ')} · ավելացնել →
         </Text>
       ) : null}
-      <MultiChips options={[...new Set([...categories.filter((c) => c !== 'Այլ'), ...fromProducts, ...f.categories])]} value={f.categories} onChange={(v) => set({ categories: v })} />
+      <MultiChips options={[...new Set([...categories.filter((c) => c !== 'Այլ'), ...f.categories])]} value={f.categories} onChange={(v) => set({ categories: v })} />
 
       <Text style={[styles.strong, { marginTop: 8 }]}>Որտեղ ենք առաքում</Text>
       <MultiChips options={[ALL_YEREVAN]} value={f.areas} onChange={(v) => set({ areas: v })} />

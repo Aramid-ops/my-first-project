@@ -97,7 +97,8 @@ test('Excel ներմուծում. նոր / թարմացվող / գնի փոփո�
   const { buildPreview, csvRows } = await import('../src/lib/product-import');
   const existing = [{ id: 'p1', firmId: 'f', name: 'Ձու C0', unit: 'հատ', price: 55, minQty: 30, step: 30, inStock: true }] as never[];
   const t = csvRows('անվանում;միավոր;գին;կատեգորիա\nձու c0;հատ;60;Ձու\nԿաթ;լ;450;Անհայտ\nՊանիր;կգ;;\nՍոուս;շիշ;300;');
-  const p = buildPreview(t, existing);
+  const cats = ['Ձու', 'Պահածոներ', 'Այլ'];
+  const p = buildPreview(t, existing, cats);
   assert.equal(p.added.length, 1);
   assert.equal(p.updated.length, 1);
   assert.deepEqual(p.priceChanges, [{ name: 'ձու c0', from: 55, to: 60 }]);
@@ -105,13 +106,13 @@ test('Excel ներմուծում. նոր / թարմացվող / գնի փոփո�
   assert.equal(p.added[0].category, 'Անհայտ'); // նոր կատեգորիա՝ ինչպես գրված է
   assert.deepEqual(p.newCategories, ['Անհայտ']);
   assert.equal(p.updated[0].category, 'Ձու'); // ստանդարտը
-  assert.equal(buildPreview([['x', 'y']], []).errors.length, 1);
-  assert.equal(buildPreview(csvRows('անվանում,գին,կատեգորիա\nԱջիկա,900,պահածո'), []).added[0].category, 'Պահածոներ');
+  assert.equal(buildPreview([['x', 'y']], [], cats).errors.length, 1);
+  assert.equal(buildPreview(csvRows('անվանում,գին,կատեգորիա\nԱջիկա,900,պահածո'), [], cats).added[0].category, 'Պահածոներ');
 });
 
 test('Excel ներմուծում. նույն անունը երկու անգամ՝ սխալ', async () => {
   const { buildPreview, csvRows } = await import('../src/lib/product-import');
-  const p = buildPreview(csvRows('անվանում,գին\nՁու,60\nձու,65'), []);
+  const p = buildPreview(csvRows('անվանում,գին\nՁու,60\nձու,65'), [], []);
   assert.equal(p.added.length, 1);
   assert.equal(p.errors.length, 1);
 });

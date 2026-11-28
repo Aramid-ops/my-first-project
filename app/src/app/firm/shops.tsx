@@ -4,7 +4,6 @@ import { placeLine } from '@/lib/rules';
 import { useEffect, useState } from 'react';
 import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
-import { categories } from '@/lib/categories';
 import { districts } from '@/lib/districts';
 import { matches } from '@/lib/search';
 import { useStore } from '@/lib/store';
@@ -25,7 +24,7 @@ const statusLabel = {
 };
 
 export default function AllShops() {
-  const { session, perms, offerPartnership, links } = useStore();
+  const { session, perms, offerPartnership, links, categories } = useStore();
   const [sent, setSent] = useState<Record<string, string>>({});
   const [rows, setRows] = useState<Row[] | null>(null);
   const [q, setQ] = useState('');

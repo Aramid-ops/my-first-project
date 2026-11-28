@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { Linking, Platform, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import readXlsxFile from 'read-excel-file/universal';
 
-import { categories } from '@/lib/categories';
+import { CategoryPicker } from '@/components/category-picker';
 import { pickAndUpload } from '@/lib/media';
 import { supabase } from '@/lib/supabase';
 import { buildPreview, csvRows, type ImportPreview } from '@/lib/product-import';
@@ -15,10 +15,10 @@ import { matches } from '@/lib/search';
 import { useStore } from '@/lib/store';
 import { colors, radius } from '@/lib/theme';
 import { units, type Product, type Unit } from '@/lib/types';
+import { Button, Card, Chips, Field, Screen, styles, Title } from '@/lib/ui';
 
 // Նմուշը դրված է կայքում (public/products-template.xlsx)
 const TEMPLATE_URL = 'https://aramid-ops.github.io/my-first-project/products-template.xlsx';
-import { Button, Card, Chips, Field, Screen, styles, Title } from '@/lib/ui';
 
 type Draft = { id?: string; stockQty?: string; name: string; unit: Unit; packNote: string; price: string; minQty: string; step: string; weighed: boolean; inStock: boolean; imageUrl?: string; category?: string; categoryAuto: boolean };
 const empty: Draft = { name: '', unit: 'հատ', packNote: '', price: '', minQty: '1', step: '1', weighed: false, inStock: true, categoryAuto: true };
@@ -36,11 +36,13 @@ function downloadTemplate() {
 }
 
 export default function FirmProducts() {
-  const { session, employees, products, saveProduct, perms, reload } = useStore();
+  const { session, employees, products, saveProduct, perms, reload, categories } = useStore();
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [newCat, setNewCat] = useState<string | null>(null);
   // «միացնել» → պահեստում քանակ չկա → հարցնում ենք քանակը
   const [activate, setActivate] = useState<{ id: string; qty: string } | null>(null);
+  // 🏷 կատեգորիայի ընտրություն (thenOn՝ հետո շարունակել միացումը)
+  const [catFor, setCatFor] = useState<{ id: string; thenOn: boolean } | null>(null);
   const [filter, setFilter] = useState('');
   const [draft, setDraft] = useState<Draft | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -53,7 +55,7 @@ export default function FirmProducts() {
     list.reduce<Record<string, Product[]>>((g, p) => ((g[p.category || 'Այլ'] ??= []).push(p), g), {}),
   ).sort(([a], [b]) => (a === 'Այլ' ? 1 : b === 'Այլ' ? -1 : a.localeCompare(b, 'hy')));
   // ստանդարտ + ֆիրմայի իր (նոր) կատեգորիաները
-  const allCats = [...new Set([...categories, ...products.filter((p) => p.firmId === me.firmId && p.category).map((p) => p.category!)])];
+  const allCats = categories;
   const set = (patch: Partial<Draft>) => setDraft((d) => (d ? { ...d, ...patch } : d));
   const num = (v: string) => Number(v.replace(',', '.'));
 
@@ -104,7 +106,7 @@ export default function FirmProducts() {
       const buf = await (await fetch(f.uri)).arrayBuffer();
       const isXlsx = /\.xlsx$/i.test(f.name) || new Uint8Array(buf.slice(0, 2)).join() === '80,75'; // «PK» = zip
       const table = isXlsx ? (await readXlsxFile(buf))[0]?.data ?? [] : csvRows(new TextDecoder().decode(buf));
-      setPreview(buildPreview(table as unknown[][], products.filter((p) => p.firmId === me.firmId)));
+      setPreview(buildPreview(table as unknown[][], products.filter((p) => p.firmId === me.firmId), categories));
     } catch {
       setMsg('Ֆայլը չհաջողվեց կարդալ։ Պահեք .xlsx կամ .csv ձևաչափով (ներբեռնեք նմուշը)');
     }
@@ -140,11 +142,17 @@ export default function FirmProducts() {
   };
 
   // Անջատել՝ միշտ; միացնել՝ եթե պահեստում կա, այլապես հարցնում ենք քանակը
+  // Քայլեր՝ 1) կատեգորիան ընտրված է 2) պահեստում կա քանակ → «Կա»
   const toggleStock = async (p: Product, on: boolean) => {
     setMsg(null);
-    const err = await saveProduct({ ...p, inStock: on });
-    if (err && on && err.includes('պահեստում')) setActivate({ id: p.id, qty: '' });
-    else setMsg(err);
+    setActivate(null);
+    if (on && p.categoryAuto !== false) return setCatFor({ id: p.id, thenOn: true });
+    // միայն վիճակը (ոչ թե ամբողջ տողը, որ թարմ ընտրված կատեգորիան չփոխվի)
+    const { error } = await supabase.from('products').update({ in_stock: on }).eq('id', p.id);
+    if (error && on && error.message.includes('պահեստում')) setActivate({ id: p.id, qty: '' });
+    else if (error && on && error.message.includes('կատեգորիան')) setCatFor({ id: p.id, thenOn: true });
+    else setMsg(error?.message ?? null);
+    reload();
   };
 
   return (
@@ -164,7 +172,7 @@ export default function FirmProducts() {
             <Text style={styles.body}>🔄 Թարմացվող՝ {preview.updated.length}</Text>
             {preview.priceChanges.length ? <Text style={[styles.body, { color: colors.warnText }]}>💰 {preview.priceChanges.length} ապրանքի գինը կփոխվի</Text> : null}
             {preview.added.length ? <Text style={styles.muted}>Նոր ապրանքները կլինեն «Չկա», մինչև պահեստում քանակ նշեք (📦 կամ միացնելով)</Text> : null}
-            {preview.newCategories.length ? <Text style={styles.body}>🏷 Նոր կատեգորիա՝ {preview.newCategories.join(', ')}</Text> : null}
+            {preview.newCategories.length ? <Text style={styles.body}>🏷 Ցանկում չկա՝ {preview.newCategories.join(', ')}. այդ ապրանքների կատեգորիան կընտրեք 🏷-ով</Text> : null}
             {preview.errors.length ? <Text style={[styles.body, { color: colors.warnText }]}>⚠️ Սխալ տողեր՝ {preview.errors.length} (չեն ներմուծվի)</Text> : null}
           </Card>
           {preview.priceChanges.length ? (
@@ -211,23 +219,18 @@ export default function FirmProducts() {
               {draft.imageUrl ? <Image source={{ uri: draft.imageUrl }} style={{ width: 96, height: 96 }} contentFit="cover" /> : <Text style={styles.muted}>+ Նկար</Text>}
             </Pressable>
             <Field label="Անվանում" value={draft.name} onChangeText={(v) => set({ name: v })} />
-            <Text style={styles.muted}>Կատեգորիա{draft.categoryAuto ? ' (ընտրվում է ինքնաբերաբար՝ ըստ անվան)' : ''}</Text>
+            <Text style={styles.muted}>
+              Կատեգորիա{draft.categoryAuto && draft.category && draft.category !== 'Այլ' ? ` · առաջարկ՝ ${draft.category} (ընտրեք, որ ապրանքը կարողանա երևալ)` : draft.categoryAuto ? ' · ընտրեք, որ ապրանքը կարողանա երևալ' : ''}
+            </Text>
             <Chips
-              options={[
-                { value: '__auto', label: draft.categoryAuto && draft.category ? `Ավտոմատ · ${draft.category}` : 'Ավտոմատ' },
-                ...allCats.map((c) => ({ value: c, label: c })),
-                { value: '__new', label: '+ Նոր կատեգորիա' },
-              ]}
-              value={newCat !== null ? '__new' : draft.categoryAuto ? '__auto' : draft.category ?? '__auto'}
+              options={allCats.map((c) => ({ value: c, label: c }))}
+              value={newCat !== null ? '__new' : draft.categoryAuto ? '' : draft.category ?? ''}
               onChange={(v) => {
                 setNewCat(v === '__new' ? '' : null);
-                if (v !== '__new') set(v === '__auto' ? { categoryAuto: true } : { category: v, categoryAuto: false });
+                if (v !== '__new') set({ category: v, categoryAuto: false });
               }}
             />
-            {newCat !== null ? (
-              <Field label="Նոր կատեգորիա" value={newCat} placeholder="Օր.՝ Ավտոյի պահեստամասեր" autoComplete="off"
-                onChangeText={(v) => { setNewCat(v); set(v.trim() ? { category: v.trim(), categoryAuto: false } : { categoryAuto: true }); }} />
-            ) : null}
+            <Text style={styles.muted}>Չգտա՞ք հարմարը՝ ընտրեք «Այլ», մենք կավելացնենք նոր կատեգորիա։</Text>
             <Text style={styles.muted}>Միավոր</Text>
             <Chips options={units.map((u) => ({ value: u, label: u }))} value={draft.unit} onChange={(u) => set({ unit: u, weighed: u === 'կգ' || u === 'գ' ? true : draft.weighed })} />
             <Field label={`Գին մեկ ${draft.unit}-ի համար, ֏`} value={draft.price} onChangeText={(v) => set({ price: v.replace(/[^\d.,]/g, '') })} keyboardType="number-pad" />
@@ -280,7 +283,7 @@ export default function FirmProducts() {
                 {items.map((p) => (
                   <View key={p.id} style={[styles.card, { gap: 8 }]}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                      <Pressable accessibilityRole="button" onPress={() => { setMsg(null); setNewCat(null); setActivate(null); setDraft(toDraft(p)); }}
+                      <Pressable accessibilityRole="button" onPress={() => { setMsg(null); setNewCat(null); setActivate(null); setCatFor(null); setDraft(toDraft(p)); }}
                         style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, opacity: p.inStock ? 1 : 0.6 }}>
                         {p.imageUrl ? <Image source={{ uri: p.imageUrl }} style={{ width: 44, height: 44, borderRadius: 10 }} contentFit="cover" /> : <View style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: '#F2F1EC' }} />}
                         <View style={{ flex: 1 }}>
@@ -291,6 +294,10 @@ export default function FirmProducts() {
                           </Text>
                         </View>
                       </Pressable>
+                      <Pressable accessibilityRole="button" accessibilityLabel={`Կատեգորիա՝ ${p.name}`} onPress={() => { setActivate(null); setCatFor(catFor?.id === p.id ? null : { id: p.id, thenOn: false }); }} hitSlop={6}
+                        style={{ paddingHorizontal: 8, paddingVertical: 6, borderRadius: radius.sm, borderWidth: 1, borderColor: p.categoryAuto !== false ? colors.warnText : colors.border }}>
+                        <Text style={{ fontSize: 13 }}>{p.categoryAuto !== false ? '🏷?' : '🏷'}</Text>
+                      </Pressable>
                       <Pressable accessibilityRole="button" accessibilityLabel={`Պահեստ՝ ${p.name}`} onPress={() => router.push(`/firm/stock?product=${p.id}`)} hitSlop={6}
                         style={{ paddingHorizontal: 8, paddingVertical: 6, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.border }}>
                         <Text style={{ fontSize: 13 }}>📦</Text>
@@ -300,6 +307,16 @@ export default function FirmProducts() {
                         <Text style={{ fontSize: 11, color: p.inStock ? colors.primary : colors.textMuted }}>{p.inStock ? 'Կա' : 'Չկա'}</Text>
                       </View>
                     </View>
+                    {catFor?.id === p.id ? (
+                      <CategoryPicker
+                        product={p}
+                        onDone={(saved) => {
+                          const then = catFor.thenOn;
+                          setCatFor(null);
+                          if (saved && then) toggleStock({ ...p, categoryAuto: false }, true);
+                        }}
+                      />
+                    ) : null}
                     {activate?.id === p.id ? (
                       <View style={{ gap: 8, backgroundColor: '#FBF3EC', borderRadius: radius.md, padding: 10 }}>
                         <Text style={styles.body}>📦 Որ ապրանքը երևա խանութներին, նշեք՝ քանի՞ {p.unit} կա պահեստում</Text>

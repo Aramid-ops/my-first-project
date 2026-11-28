@@ -2,6 +2,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { mapDebt, mapDriverProfile, mapEmployee, mapFirm, mapIssue, mapLine, mapLink, mapOrder, mapPayment, mapProduct, mapSavedList, mapShop, mapTeams, mapTextOrder } from './mappers';
+import { categories as defaultCategories } from './categories';
 import type { Data, Session } from './store-types';
 import { supabase } from './supabase';
 
@@ -24,6 +25,7 @@ export const emptyData: Data = {
   isPlatformAdmin: false,
   prices: {},
   perms: [],
+  categories: defaultCategories,
 };
 
 const cacheKey = (uid: string) => `snapshot:${uid}`;
@@ -56,6 +58,7 @@ export async function loadData(uid: string): Promise<Data | null> {
     supabase.rpc('debts'),
     supabase.from('payments').select('*').order('marked_paid_by_shop_at', { ascending: false }),
     supabase.from('platform_admins').select('user_id').maybeSingle(),
+    supabase.from('categories').select('name'),
     supabase.from('driver_profiles').select('*').eq('user_id', uid).maybeSingle(),
     supabase.from('employees').select('id, role').eq('user_id', uid).maybeSingle(),
     supabase.from('shop_members').select('shop_id').eq('user_id', uid).maybeSingle(),
@@ -67,7 +70,7 @@ export async function loadData(uid: string): Promise<Data | null> {
       .limit(100),
   ]);
   if (res.some((r) => r.error)) return fromCache(uid);
-  const [f, e, s, l, p, o, tm, tmm, ln, iss, dbt, pay, pa, dp, me, member, txt] = res;
+  const [f, e, s, l, p, o, tm, tmm, ln, iss, dbt, pay, pa, cats, dp, me, member, txt] = res;
   // ժամկետանց պարտքեր. սխալի դեպքում՝ պարզապես դատարկ (մնացածը չի տուժում)
   const overdue = ((await supabase.rpc('overdue_debts')).data ?? []) as { shop_id: string; firm_id: string; overdue: number; days_late: number }[];
 
@@ -103,6 +106,8 @@ export async function loadData(uid: string): Promise<Data | null> {
     payments: (pay.data ?? []).map(mapPayment),
     isPlatformAdmin: !!pa.data,
     perms: [],
+    // այբբենական, «Այլ»-ը՝ վերջում
+    categories: ((cats.data ?? []) as { name: string }[]).map((c) => c.name).sort((a, b) => (a === 'Այլ' ? 1 : b === 'Այլ' ? -1 : a.localeCompare(b, 'hy'))),
     driverProfile: dp.data ? mapDriverProfile(dp.data) : null,
     prices: {},
   };

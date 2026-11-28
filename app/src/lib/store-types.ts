@@ -31,6 +31,8 @@ export interface Data {
   isPlatformAdmin: boolean;
   /** Իմ թույլտվությունները (աշխատողի համար) */
   perms: Perm[];
+  /** Կատեգորիաների ցանկը (կառավարում է հարթակը) */
+  categories: string[];
   /** Խանութի անհատական գները՝ ըստ ապրանքի */
   prices: Record<string, number>;
 }

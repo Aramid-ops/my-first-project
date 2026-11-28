@@ -1,9 +1,10 @@
-// Հարթակի ադմին («Մատակարար»-ի թիմ). վարորդների նույնականացում և ֆիրմաների հայտեր
+// Հարթակի ադմին («Մատակարար»-ի թիմ). վարորդների նույնականացում, ֆիրմաների հայտեր, կատեգորիաներ
 import { Image } from 'expo-image';
 import { Redirect, router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { AdminCategories } from '@/components/admin-categories';
 import { useStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { colors, radius } from '@/lib/theme';
@@ -16,7 +17,7 @@ type Activation = { firm_id: string; firm_name: string; tax_id: string; code: st
 export default function Platform() {
   const { signOut } = useStore();
   const [allowed, setAllowed] = useState<boolean | null>(null);
-  const [tab, setTab] = useState<'drivers' | 'firms'>('drivers');
+  const [tab, setTab] = useState<'drivers' | 'firms' | 'categories'>('drivers');
   const [vers, setVers] = useState<Ver[]>([]);
   const [claims, setClaims] = useState<Claim[]>([]);
   const [acts, setActs] = useState<Activation[]>([]);
@@ -57,12 +58,14 @@ export default function Platform() {
           options={[
             { value: 'drivers', label: 'Վարորդներ', hint: `${vers.length}` },
             { value: 'firms', label: 'Ֆիրմաներ', hint: `${claims.length + acts.length}` },
+            { value: 'categories', label: '🏷 Կատեգորիաներ' },
           ]}
           value={tab}
           onChange={setTab}
         />
       </View>
-      <ScrollView contentContainerStyle={{ gap: 12, paddingBottom: 24 }}>
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 12, paddingBottom: 24 }}>
+        {tab === 'categories' ? <AdminCategories /> : null}
         {tab === 'drivers' && vers.length === 0 ? <Text style={styles.muted}>Ստուգման սպասող վարորդ չկա</Text> : null}
         {tab === 'drivers'
           ? vers.map((v) => (

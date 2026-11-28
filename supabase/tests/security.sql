@@ -500,5 +500,66 @@ update products set in_stock = true where name = 'Աջիկա';   -- պահեստ
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 
+-- 36. Ուղղագրական սխալ և նոր կատեգորիաներ
+do $$ begin
+  assert normalize_category('Տմնտեսական') = 'Տնտեսական ապրանքներ', 'սխալ ուղղագրությունը պետք է ճանաչվեր';
+  assert guess_category('մազի ներկ ց200') = 'Կոսմետիկա և հիգիենա';
+  assert guess_category('սև բիբար') = 'Ձեթ, համեմունք, սոուս';
+  assert guess_category('կուկուռուզ') = 'Մրգեր և բանջարեղեն';
+end $$;
+
+-- 37. Ավտոմատ (չընտրված) կատեգորիայով ապրանքը չի միանում, նույնիսկ պահեստով
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000007');
+insert into products (firm_id, name, unit, price, min_qty, step) values ('10000000-0000-0000-0000-000000000001', 'Թեստ օճառ', 'հատ', 300, 1, 1);
+insert into stock_moves (firm_id, product_id, qty, kind, employee_id)
+  values ('10000000-0000-0000-0000-000000000001', (select id from products where name = 'Թեստ օճառ'), 10, 'in', (my_employee()).id);
+do $$ begin assert not (select in_stock from products where name = 'Թեստ օճառ'), 'առանց ընտրված կատեգորիայի՝ «Չկա»'; end $$;
+do $$ begin
+  begin update products set in_stock = true where name = 'Թեստ օճառ'; raise exception 'պետք է մերժվեր';
+  exception when raise_exception then if sqlerrm = 'պետք է մերժվեր' then raise; end if; end;
+end $$;
+update products set category = 'Կոսմետիկա և հիգիենա', category_auto = false where name = 'Թեստ օճառ';
+update products set in_stock = true where name = 'Թեստ օճառ';
+do $$ begin assert (select in_stock from products where name = 'Թեստ օճառ'), 'կատեգորիայից հետո՝ «Կա»'; end $$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+
+-- 38. Կատեգորիաներ՝ միայն ցանկից; ֆիրման նոր չի ստեղծում; ադմինը կառավարում է
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000002');   -- Կարեն (ֆիրմայի մենեջեր, ոչ հարթակի ադմին)
+reset role;
+insert into products (firm_id, name, unit, price, min_qty, step, category, category_auto)
+  values ('10000000-0000-0000-0000-000000000001', 'Թեստ պտուտակ', 'հատ', 50, 1, 1, 'Ավտոյի պահեստամասեր', false);
+set role authenticated;
+do $$ begin
+  assert (select category_auto from products where name = 'Թեստ պտուտակ'), 'ցանկում չեղածը՝ ավտոմատ (ընտրել պետք է)';
+  assert not exists (select 1 from categories where name = 'Ավտոյի պահեստամասեր'), 'ֆիրման նոր կատեգորիա չի ստեղծում';
+end $$;
+do $$ begin
+  begin perform rename_category('Ձուկ', 'Ձկնեղեն'); raise exception 'պետք է մերժվեր (rename)';
+  exception when raise_exception then if sqlerrm like 'պետք է մերժվեր%' then raise; end if; end;
+end $$;
+do $$ begin
+  begin insert into categories values ('Իմ կատեգորիա'); raise exception 'պետք է մերժվեր';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+insert into platform_admins (user_id) values ('00000000-0000-0000-0000-000000000004') on conflict do nothing;
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000004');   -- հարթակի ադմին
+insert into categories values ('Ավտոյի պահեստամասեր');
+select admin_set_product_category((select id from products where name = 'Թեստ պտուտակ'), 'Ավտոյի պահեստամասեր');
+select rename_category('Ավտոյի պահեստամասեր', 'Ավտոապրանքներ');   -- միավորում եղածին
+do $$ begin
+  assert (select category from products where name = 'Թեստ պտուտակ') = 'Ավտոապրանքներ', 'միավորումը պետք է տեղափոխեր ապրանքը';
+  assert not exists (select 1 from categories where name = 'Ավտոյի պահեստամասեր'), 'հինը պետք է ջնջվեր';
+end $$;
+select delete_category('Ավտոապրանքներ');
+do $$ begin assert (select category from products where name = 'Թեստ պտուտակ') = 'Այլ', 'ջնջելիս՝ «Այլ»'; end $$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+
 reset role;
 \echo ✅ Բազայի բոլոր ստուգումներն անցան

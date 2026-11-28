@@ -10,7 +10,8 @@ import { useStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { colors, radius } from '@/lib/theme';
 import type { Product } from '@/lib/types';
-import { Button, Card, Chips, Field, Pill, Screen, styles, Title } from '@/lib/ui';
+import { CategoryPicker } from '@/components/category-picker';
+import { Button, Chips, Field, Pill, Screen, styles, Title } from '@/lib/ui';
 
 type Bal = { product_id: string; balance: number; reserved: number; last_in: string | null };
 type Move = { id: string; qty: number; kind: 'in' | 'out' | 'writeoff' | 'adjust'; note: string | null; created_at: string; order_id: string | null };
@@ -38,6 +39,7 @@ export default function Stock() {
   const [low, setLow] = useState('');
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [picking, setPicking] = useState(false);
 
   const load = useCallback(async () => {
     const { data } = await supabase.rpc('stock_balance');
@@ -63,6 +65,7 @@ export default function Stock() {
 
   const toggle = (p: Product) => {
     setMsg(null);
+    setPicking(false);
     setQty('');
     setNote('');
     setAction('in');
@@ -85,7 +88,7 @@ export default function Stock() {
     if (error) return setMsg(error.message);
     setQty('');
     setNote('');
-    setMsg('✓ Պահված է');
+    setMsg(action === 'in' && p.categoryAuto !== false ? '✓ Պահված է · ապրանքը կերևա խանութներին, երբ ընտրեք կատեգորիան 🏷' : '✓ Պահված է');
     await Promise.all([load(), loadMoves(p.id), reload()]);
   };
 
@@ -136,6 +139,25 @@ export default function Stock() {
               </Pressable>
               {open === p.id ? (
                 <View style={{ gap: 8, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }}>
+                  {picking ? (
+                    <CategoryPicker
+                      product={p}
+                      onDone={async (saved) => {
+                        setPicking(false);
+                        if (!saved) return;
+                        // պահեստում կա → ապրանքը միանգամից երևում է խանութներին
+                        if (!p.inStock && Number(bal[p.id]?.balance ?? 0) > 0) await supabase.from('products').update({ in_stock: true }).eq('id', p.id);
+                        setMsg(!p.inStock && Number(bal[p.id]?.balance ?? 0) > 0 ? '✓ Կատեգորիան պահված է · ապրանքը այժմ երևում է խանութներին' : '✓ Կատեգորիան պահված է');
+                        reload();
+                      }}
+                    />
+                  ) : (
+                    <Pressable accessibilityRole="button" onPress={() => setPicking(true)} hitSlop={6}>
+                      <Text style={{ color: p.categoryAuto !== false ? colors.warnText : colors.primary, fontWeight: '600' }}>
+                        🏷 {p.categoryAuto !== false ? `Կատեգորիան ընտրված չէ${p.category && p.category !== 'Այլ' ? ` (առաջարկ՝ ${p.category})` : ''} · ընտրել →` : `${p.category} · փոխել`}
+                      </Text>
+                    </Pressable>
+                  )}
                   {canEdit ? (
                     <>
                       <Chips options={actions} value={action} onChange={setAction} />

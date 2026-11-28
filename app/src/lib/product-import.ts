@@ -1,9 +1,9 @@
 // Ապրանքների ներմուծում Excel-ից (.xlsx) կամ CSV-ից. նախադիտում (նոր / թարմացվող / սխալներ) → հաստատում
-import { categories } from './categories';
 import { units, type Product, type Unit } from './types';
 
 export type ImportRow = { line: number; name: string; unit: Unit; price: number; minQty: number; step: number; packNote: string; category?: string; existing?: Product };
-export type ImportPreview = { rows: ImportRow[]; added: ImportRow[]; updated: ImportRow[]; priceChanges: { name: string; from: number; to: number }[]; errors: string[]; newCategories: string[] };
+export type ImportPreview = { rows: ImportRow[]; added: ImportRow[]; updated: ImportRow[]; priceChanges: { name: string; from: number; to: number }[]; errors: string[]; /** Ցանկում չգտնված կատեգորիաներ */
+  newCategories: string[] };
 
 // Վերնագրեր՝ հայերեն կամ անգլերեն
 const cols: Record<string, string[]> = {
@@ -24,26 +24,25 @@ export function csvRows(text: string): string[][] {
   return lines.map((l) => l.split(sep).map((c) => c.trim().replace(/^"|"$/g, '')));
 }
 
-/** Գրված կատեգորիա → ստանդարտը (մեծատառ/փոքրատառ անկախ) կամ նոր՝ ինչպես գրված է. դատարկ՝ ավտոմատ */
-function categoryOf(raw: string, known: string[], added: string[]) {
+/** Գրված կատեգորիա → ցանկից (մեծատառ, «-ներ/-եր» անկախ). ցանկում չկա՝ undefined (ֆիրման կընտրի 🏷-ով) և նշում ենք */
+function categoryOf(raw: string, known: string[], unknown: string[]) {
   const t = raw.replace(/\s+/g, ' ').trim();
   if (!t) return undefined;
   const key = (c: string) => c.toLowerCase().replace(/\s+/g, ' ').trim().replace(/(ներ|եր)$/, '');
-  const hit = [...known, ...added].find((c) => key(c) === key(t)); // «պահածո» = «Պահածոներ»
+  const hit = known.find((c) => key(c) === key(t)); // «պահածո» = «Պահածոներ»
   if (hit) return hit;
-  const c = t[0].toUpperCase() + t.slice(1);
-  added.push(c);
-  return c;
+  if (!unknown.includes(t)) unknown.push(t);
+  return t; // բազան կփորձի ճանաչել (1–2 տառի սխալ), այլապես կմնա չընտրված
 }
 
 const num = (v: unknown) => Number(String(v ?? '').replace(/\s/g, '').replace(',', '.'));
 
-export function buildPreview(table: unknown[][], existing: Product[]): ImportPreview {
+export function buildPreview(table: unknown[][], existing: Product[], categories: string[]): ImportPreview {
   const head = (table[0] ?? []).map((h) => String(h ?? '').trim().toLowerCase());
   const idx = (k: string) => head.findIndex((h) => cols[k].includes(h));
   const at = (r: unknown[], k: string) => (idx(k) >= 0 ? String(r[idx(k)] ?? '').trim() : '');
   const out: ImportPreview = { rows: [], added: [], updated: [], priceChanges: [], errors: [], newCategories: [] };
-  const known = [...categories, ...existing.map((p) => p.category).filter((c): c is string => !!c)];
+  const known = categories;
   if (idx('name') < 0 || idx('price') < 0) {
     out.errors.push('Առաջին տողում պետք է լինեն «անվանում» և «գին» սյուները (ներբեռնեք նմուշը)');
     return out;

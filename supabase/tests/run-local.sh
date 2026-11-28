@@ -13,6 +13,7 @@ create function auth.uid() returns uuid language sql stable as $$ select nullif(
 do $$ begin create role authenticated; exception when duplicate_object then null; end $$;
 do $$ begin create role anon; exception when duplicate_object then null; end $$;
 create publication supabase_realtime;
+create schema if not exists extensions;
 create schema net; create table net.q (id serial, url text, body jsonb);
 create function net.http_post(url text, body jsonb, headers jsonb) returns bigint language sql as $$ insert into net.q(url, body) values (url, body) returning id $$;
 SQL
