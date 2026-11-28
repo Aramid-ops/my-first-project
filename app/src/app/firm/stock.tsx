@@ -1,6 +1,6 @@
 // 📦 Պահեստ. մնացորդ, պատվիրված (դեռ չառաքված), մուտք, դուրսգրում, գույքագրում, պատմություն։
 // Առաքված պատվերը ինքն է հանում պահեստից. 0 → «Չկա» ինքնաբերաբար։ Փոխել կարող է «📦 Պահեստ» իրավունքով, մյուսները՝ միայն դիտում։
-import { Redirect, router } from 'expo-router';
+import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
@@ -29,7 +29,8 @@ export default function Stock() {
   const me = session?.kind === 'employee' ? employees.find((e) => e.id === session.employeeId) : undefined;
   const [bal, setBal] = useState<Record<string, Bal>>({});
   const [filter, setFilter] = useState('');
-  const [open, setOpen] = useState<string | null>(null);
+  const { product } = useLocalSearchParams<{ product?: string }>();
+  const [open, setOpen] = useState<string | null>(product ?? null);
   const [moves, setMoves] = useState<Move[]>([]);
   const [action, setAction] = useState<Action>('in');
   const [qty, setQty] = useState('');
@@ -48,14 +49,16 @@ export default function Stock() {
   }, []);
   useEffect(() => {
     load();
-  }, [load]);
+    if (product) loadMoves(product);
+  }, [load, loadMoves, product]);
 
   if (!me || me.role === 'driver') return <Redirect href="/" />;
   const canEdit = perms.includes('stock');
   const mine = products.filter((p) => p.firmId === me.firmId && matches(p.name, filter));
   // հաշվառվողները՝ վերևում, «քիչ է մնացել»-ը՝ ամենավերևում
   const isLow = (p: Product) => !!bal[p.id] && p.lowStock != null && Number(bal[p.id].balance) <= p.lowStock;
-  const list = [...mine].sort((a, b) => Number(isLow(b)) - Number(isLow(a)) || Number(!!bal[b.id]) - Number(!!bal[a.id]));
+  // ապրանքների էջի 📦-ից եկած ապրանքը՝ ամենավերևում
+  const list = [...mine].sort((a, b) => Number(b.id === product) - Number(a.id === product) || Number(isLow(b)) - Number(isLow(a)) || Number(!!bal[b.id]) - Number(!!bal[a.id]));
   const lowCount = mine.filter(isLow).length;
 
   const toggle = (p: Product) => {

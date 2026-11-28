@@ -106,6 +106,7 @@ test('Excel ներմուծում. նոր / թարմացվող / գնի փոփո�
   assert.deepEqual(p.newCategories, ['Անհայտ']);
   assert.equal(p.updated[0].category, 'Ձու'); // ստանդարտը
   assert.equal(buildPreview([['x', 'y']], []).errors.length, 1);
+  assert.equal(buildPreview(csvRows('անվանում,գին,կատեգորիա\nԱջիկա,900,պահածո'), []).added[0].category, 'Պահածոներ');
 });
 
 test('Excel ներմուծում. նույն անունը երկու անգամ՝ սխալ', async () => {

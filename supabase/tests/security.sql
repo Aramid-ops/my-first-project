@@ -478,5 +478,27 @@ reset role;
 select set_config('request.jwt.claim.sub', '', false);
 do $$ begin assert exists (select 1 from order_items where final_price = 300 and sub_status is null), 'ուղիղ UPDATE-ը չպետք է փոխեր'; end $$;
 
+-- 35. Կատեգորիաների միավորում և «Կա» միայն պահեստով
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000007');   -- ղեկավար
+insert into products (firm_id, name, unit, price, min_qty, step, category, category_auto, in_stock)
+  values ('10000000-0000-0000-0000-000000000001', 'Աջիկա', 'հատ', 900, 1, 1, ' պահածո ', false, true);
+do $$ begin
+  assert (select category from products where name = 'Աջիկա') = 'Պահածոներ', 'պետք է միանար «Պահածոներ»-ին';
+  assert not (select in_stock from products where name = 'Աջիկա'), 'նոր ապրանքը առանց պահեստի պետք է լիներ «Չկա»';
+end $$;
+do $$ begin
+  begin update products set in_stock = true where name = 'Աջիկա'; raise exception 'պետք է մերժվեր';
+  exception when raise_exception then if sqlerrm = 'պետք է մերժվեր' then raise; end if; end;
+end $$;
+insert into stock_moves (firm_id, product_id, qty, kind, employee_id)
+  values ('10000000-0000-0000-0000-000000000001', (select id from products where name = 'Աջիկա'), 20, 'in', (my_employee()).id);
+do $$ begin assert (select in_stock from products where name = 'Աջիկա'), 'պահեստից հետո պետք է լիներ «Կա»'; end $$;
+update products set in_stock = false where name = 'Աջիկա';
+do $$ begin assert not (select in_stock from products where name = 'Աջիկա'), 'անջատել միշտ կարելի է'; end $$;
+update products set in_stock = true where name = 'Աջիկա';   -- պահեստում կա → կարելի է միացնել
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+
 reset role;
 \echo ✅ Բազայի բոլոր ստուգումներն անցան

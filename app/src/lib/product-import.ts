@@ -28,7 +28,8 @@ export function csvRows(text: string): string[][] {
 function categoryOf(raw: string, known: string[], added: string[]) {
   const t = raw.replace(/\s+/g, ' ').trim();
   if (!t) return undefined;
-  const hit = [...known, ...added].find((c) => c.toLowerCase() === t.toLowerCase());
+  const key = (c: string) => c.toLowerCase().replace(/\s+/g, ' ').trim().replace(/(ներ|եր)$/, '');
+  const hit = [...known, ...added].find((c) => key(c) === key(t)); // «պահածո» = «Պահածոներ»
   if (hit) return hit;
   const c = t[0].toUpperCase() + t.slice(1);
   added.push(c);

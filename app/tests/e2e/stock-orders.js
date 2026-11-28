@@ -44,7 +44,14 @@ const P = (n) => `(select id from products where name = '${n}' and firm_id = ${F
   await vis(a, /Հաստատել \(3\)/).click(); await a.waitForTimeout(4000);
   ok('18. գինը թարմացավ բազայում', sql(`select price from products where id = ${P('Թեստ կաթ 1 լ')}`).includes('777'));
   ok('18. իր կատեգորիան պահվեց', sql(`select category from products where id = ${P('Թեստ ավտո յուղ')}`).includes('Ավտոյի պահեստամասեր'));
-  ok('19. «Կա / Չկա» ցույց է տալիս վիճակը', (await a.getByText('✓ Կա').count()) >= 2);
+  ok('18. նոր ապրանքը՝ «Չկա» (առանց պահեստի)', sql(`select in_stock from products where id = ${P('Թեստ պանիր')}`).includes('false'));
+  ok('17. կատեգորիաներով խմբավորված', (await a.getByText(/^Ավտոյի պահեստամասեր · 1/).count()) === 1);
+  await a.getByLabel('Թեստ պանիր՝ Չկա').click(); await a.waitForTimeout(2000);
+  ok('19. միացնելիս հարցնում է պահեստի քանակը', (await a.getByText(/Որ ապրանքը երևա խանութներին/).count()) === 1);
+  await a.getByLabel('Քանակ պահեստում').fill('5');
+  await vis(a, 'Միացնել', { exact: true }).click(); await a.waitForTimeout(3000);
+  ok('19. քանակից հետո՝ «Կա»', sql(`select in_stock from products where id = ${P('Թեստ պանիր')}`).includes('true'));
+  await a.screenshot({ path: S + '/s19-activate.png' });
   ok('18. նոր ապրանքը ստեղծվեց', sql(`select count(*) n from products where id = ${P('Թեստ պանիր')}`).includes('"n":1'));
   // 20. Պահեստ
   await a.goto(BASE + '/firm/stock'); await a.waitForTimeout(2500);
