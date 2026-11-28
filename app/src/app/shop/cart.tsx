@@ -37,7 +37,7 @@ export default function Cart() {
       </View>
       {/* Պահված ցուցակներ՝ մեկ սեղմումով լցնել զամբյուղը */}
       {savedLists.length ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, marginBottom: 10 }} contentContainerStyle={{ gap: 8 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, flexShrink: 0, marginBottom: 10 }} contentContainerStyle={{ gap: 8 }}>
           {savedLists.map((l) => (
             <Pressable key={l.id} accessibilityRole="button" onPress={() => applyList(l)} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.card }}>
               <Text style={styles.body}>📋 {l.name} · {l.items.length}</Text>
@@ -81,7 +81,7 @@ export default function Cart() {
               </Pressable>
             ) : (
               <View style={{ flexDirection: 'row', gap: 8 }}>
-                <TextInput importantForAutofill="no"
+                <TextInput placeholderTextColor={colors.textMuted} importantForAutofill="no"
                   accessibilityLabel="Ցուցակի անուն"
                   placeholder="Օր.՝ Շաբաթական"
                   value={listName}

@@ -8,7 +8,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { ForwardPicker } from '@/components/forward-picker';
 import { PaymentCard } from '@/components/payment-card';
-import { deliveryLabel, formatAmd, formatDayTime, formatQty, formatTime } from '@/lib/rules';
+import { deliveryLabel, formatAmd, formatDayTime, formatQty, formatTime, placeLine } from '@/lib/rules';
 import { ChatButton, PlatformLink } from '@/components/chat-button';
 import { InviteButton } from '@/components/invite-button';
 import { districts } from '@/lib/districts';
@@ -197,7 +197,7 @@ export default function Inbox() {
               return (
                 <View key={l.shopId} style={[styles.card, { gap: 8 }]}>
                   <Text style={styles.strong}>{shop?.name}</Text>
-                  <Text style={styles.muted}>{[shop?.district, shop?.address].filter(Boolean).join(' · ')}</Text>
+                  <Text style={styles.muted}>{placeLine(shop?.district, shop?.address, ' · ')}</Text>
                   <Text style={styles.muted}>Գիծ՝</Text>
                   <Chips
                     options={s.lines.filter((x) => x.firmId === me.firmId).map((x) => ({ value: x.id, label: x.name, hint: x.deliveryDays.length ? x.deliveryDays.map((d) => dayShort[d]).join(', ') : 'ամեն օր' }))}
@@ -253,7 +253,7 @@ function OrderCard({ order: o, action, withInvoice }: { order: Order; action: Re
       ))}
       {withInvoice ? (
         <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-          <TextInput importantForAutofill="no"
+          <TextInput placeholderTextColor={colors.textMuted} importantForAutofill="no"
             accessibilityLabel="Ֆակտուրայի համար"
             placeholder="Ֆակտուրա №"
             value={inv}

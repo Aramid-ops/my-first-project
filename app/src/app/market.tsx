@@ -34,10 +34,10 @@ function ago(iso: string) {
 const input = { minHeight: 52, borderWidth: 2, borderColor: colors.dark, borderRadius: radius.lg, paddingHorizontal: 16, fontSize: 16, backgroundColor: colors.card, color: colors.text } as const;
 
 export default function LiveMarket() {
-  const { session, employees, links } = useStore();
+  const { session, employees, links, firms } = useStore();
   const isShop = session?.kind === 'shop';
   const me = session?.kind === 'employee' ? employees.find((e) => e.id === session.employeeId) : undefined;
-  const [tab, setTab] = useState<Tab>(isShop ? 'offers' : 'wants');
+  const [tab, setTab] = useState<Tab>(isShop ? 'wants' : 'offers');
   const [reqs, setReqs] = useState<Req[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [text, setText] = useState('');
@@ -45,6 +45,9 @@ export default function LiveMarket() {
   const [qty, setQty] = useState('');
   const [unit, setUnit] = useState<string>('հատ');
   const [msg, setMsg] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  // իմ հարցումներին եկած առաջարկները (միայն խանութի համար. RLS)
+  const [myOffers, setMyOffers] = useState<{ id: string; request_id: string; firm_id: string; text: string; price: number | null }[]>([]);
   const [offerFor, setOfferFor] = useState<string | null>(null);
   const [offerText, setOfferText] = useState('');
   const [offerPrice, setOfferPrice] = useState('');
@@ -55,7 +58,11 @@ export default function LiveMarket() {
     const [r, d] = await Promise.all([supabase.rpc('live_requests'), supabase.rpc('live_deals')]);
     setReqs((r.data ?? []) as Req[]);
     setDeals((d.data ?? []) as Deal[]);
-  }, []);
+    if (isShop) {
+      const { data } = await supabase.from('supply_offers').select('id, request_id, firm_id, text, price').order('created_at');
+      setMyOffers((data ?? []) as typeof myOffers);
+    }
+  }, [isShop]);
   useEffect(() => {
     load();
     const ch = supabase
@@ -82,10 +89,13 @@ export default function LiveMarket() {
     if (q !== null && !(q > 0)) return setMsg('Քանակը պետք է լինի 0-ից մեծ թիվ');
     const row = { text: t, qty: q, unit: q ? unit : null };
     const p = price ? Number(price) : null;
+    if (sending) return;
+    setSending(true);
     const { error } =
       postKind === 'wants'
         ? await supabase.from('supply_requests').insert({ ...row, shop_id: shopId, price_hint: p })
         : await supabase.from('supplier_deals').insert({ ...row, firm_id: me!.firmId, employee_id: me!.id, price: p });
+    setSending(false);
     if (error) return setMsg(error.message);
     setText('');
     setPrice('');
@@ -105,7 +115,23 @@ export default function LiveMarket() {
           <Text style={{ color: '#2E9E5B' }}>●</Text> Live շուկա
         </Text>
       </View>
-      {canPost ? (
+      <View style={{ marginBottom: 10 }}>
+        <Chips
+          options={[
+            { value: 'wants', label: '🛒 Խանութները ուզում են', hint: `${reqs.length}` },
+            { value: 'offers', label: '💼 Մատակարարները առաջարկում են', hint: `${deals.length}` },
+          ]}
+          value={tab}
+          onChange={(v) => { setTab(v as Tab); setMsg(null); }}
+        />
+      </View>
+      {/* Թեթև բացատրություն գույների մասին */}
+      <Text style={[styles.muted, { marginBottom: 10 }]}>
+        <Text style={{ color: colors.dark, fontWeight: '700' }}>● Կարմիրը</Text>՝ մատակարարների առաջարկներն են ·{' '}
+        <Text style={{ color: green, fontWeight: '700' }}>● Կանաչը</Text>՝ խանութների պահանջները
+      </Text>
+      {/* Խանութը գրում է միայն իր ներդիրում, մատակարարը՝ իր */}
+      {canPost && tab === postKind ? (
         <View style={{ gap: 8, marginBottom: 12 }}>
           <Text style={styles.strong}>{postKind === 'wants' ? '📣 Ի՞նչ ապրանք եք փնտրում' : '💼 Ի՞նչ եք առաջարկում'}</Text>
           <TextInput
@@ -142,29 +168,19 @@ export default function LiveMarket() {
                 />
               </View>
               <Chips options={units.map((u) => ({ value: u, label: u }))} value={unit} onChange={setUnit} />
-              <Button label={postKind === 'wants' ? '🔎 Գտնել մատակարար' : '📣 Առաջարկել շուկային'} onPress={post} />
+              <Button label={sending ? 'Ուղարկվում է…' : postKind === 'wants' ? '🔎 Գտնել մատակարար' : '📣 Առաջարկել խանութներին'} disabled={sending} onPress={post} />
             </>
           ) : null}
           {msg ? <Text style={{ color: colors.warnText }}>{msg}</Text> : null}
         </View>
       ) : null}
-      <View style={{ marginBottom: 10 }}>
-        <Chips
-          options={[
-            { value: 'wants', label: '🛒 Խանութները ուզում են', hint: `${reqs.length}` },
-            { value: 'offers', label: '💼 Մատակարարները առաջարկում են', hint: `${deals.length}` },
-          ]}
-          value={tab}
-          onChange={(v) => { setTab(v as Tab); setMsg(null); }}
-        />
-      </View>
 
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 10, paddingBottom: 24 }}>
         {tab === 'wants' ? (
           <>
             {reqs.length === 0 ? <Text style={styles.muted}>Դեռ հարցումներ չկան</Text> : null}
             {reqs.map((r) => (
-              <View key={r.id} style={[styles.card, { gap: 6, borderColor: r.mine ? colors.dark : colors.border }]}>
+              <View key={r.id} style={[styles.card, { gap: 6, borderColor: green, borderWidth: r.mine ? 2 : 1, backgroundColor: greenSoft }]}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
                   <Text style={[styles.strong, { flex: 1, fontSize: 16 }]}>🛒 {r.text}</Text>
                   <Text style={styles.muted}>{ago(r.created_at)}</Text>
@@ -175,12 +191,27 @@ export default function LiveMarket() {
                   {me && r.blocked ? ' · ⛔ ձեր սև ցուցակում է' : ''}
                 </Text>
                 {r.mine ? (
-                  // Առաջարկները գնում են անձնական չաթ, այստեղ՝ միայն քանակը
-                  <Pressable accessibilityRole="button" onPress={() => router.push(r.offers ? '/chats' : '/shop/requests')} hitSlop={8}>
-                    <Text style={{ color: colors.primary, fontWeight: '600' }}>
-                      {r.offers ? `💼 Ստացել է ${r.offers} առաջարկ · 💬 չաթում →` : 'Ձեր հարցումն է · դեռ առաջարկ չկա'}
-                    </Text>
-                  </Pressable>
+                  <>
+                    <Text style={{ color: green, fontWeight: '700' }}>{r.offers ? `💼 Ստացել է ${r.offers} առաջարկ` : 'Ձեր հարցումն է · դեռ առաջարկ չկա'}</Text>
+                    {/* Առաջարկները՝ հենց այստեղ (կարմիր), իսկ շարունակությունը՝ անձնական չաթում */}
+                    {myOffers.filter((o) => o.request_id === r.id).map((o) => (
+                      <View key={o.id} style={{ borderLeftWidth: 3, borderLeftColor: colors.dark, backgroundColor: redSoft, borderRadius: 8, padding: 10, gap: 4 }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
+                          <Text style={[styles.strong, { flex: 1, color: colors.dark }]}>💼 {firms.find((f) => f.id === o.firm_id)?.name ?? 'Մատակարար'}</Text>
+                          {o.price ? <Text style={[styles.strong, { color: colors.dark }]}>{formatAmd(Number(o.price))}</Text> : null}
+                        </View>
+                        <Text style={styles.body}>{o.text}</Text>
+                        <View style={{ flexDirection: 'row', gap: 16 }}>
+                          <Pressable accessibilityRole="button" onPress={() => router.push('/chats')} hitSlop={8}>
+                            <Text style={{ color: colors.primary, fontWeight: '600' }}>💬 Չաթ</Text>
+                          </Pressable>
+                          <Pressable accessibilityRole="button" onPress={() => router.push(`/shop/firm/${o.firm_id}`)} hitSlop={8}>
+                            <Text style={{ color: colors.primary, fontWeight: '600' }}>Դիտել մատակարարին →</Text>
+                          </Pressable>
+                        </View>
+                      </View>
+                    ))}
+                  </>
                 ) : r.offers ? (
                   <Pill text={`💼 ${r.offers} առաջարկ`} tone="info" />
                 ) : null}
@@ -248,7 +279,7 @@ export default function LiveMarket() {
               const c = colorFor(d.firm_id);
               const linked = links.find((l) => l.shopId === shopId && l.firmId === d.firm_id)?.status === 'active';
               return (
-                <View key={d.id} style={[styles.card, { gap: 6, borderColor: d.mine ? colors.dark : colors.border }]}>
+                <View key={d.id} style={[styles.card, { gap: 6, borderColor: colors.dark, borderWidth: d.mine ? 2 : 1, backgroundColor: redSoft }]}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                     <Logo name={d.firm_name} uri={d.firm_logo ?? undefined} bg={c.bg} fg={c.fg} size={40} />
                     <View style={{ flex: 1 }}>
@@ -342,3 +373,7 @@ const units = ['հատ', 'կգ', 'լ', 'տուփ', 'արկղ', 'բլոկ'];
 function amountLine(qty: number | null, unit: string | null, price: number | null, priceLabel = '') {
   return [qty ? `${Number(qty)} ${unit ?? ''}`.trim() : null, price ? `${priceLabel}${formatAmd(Number(price))}${unit ? `/${unit}` : ''}` : null].filter(Boolean).join(' · ');
 }
+
+const green = '#2E9E5B';
+const greenSoft = '#EEF7F1';
+const redSoft = '#F9EEF1';

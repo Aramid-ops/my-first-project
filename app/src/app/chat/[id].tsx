@@ -58,7 +58,7 @@ export default function ChatThread() {
               <Text>📷</Text>
             </Pressable>
           ) : null}
-          <TextInput importantForAutofill="no"
+          <TextInput placeholderTextColor={colors.textMuted} importantForAutofill="no"
             accessibilityLabel="Հաղորդագրություն"
             placeholder="Գրեք կամ թելադրեք 🎤…"
             value={text}

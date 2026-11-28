@@ -112,3 +112,9 @@ export function orderDeadlineLabel(delivery: Date, cutoff?: string, from: Date =
 export function firmHasAdmin(employees: Employee[], firm?: Firm): boolean {
   return !!firm && firm.verified !== false && employees.some((e) => e.firmId === firm.id && e.role === 'admin' && e.active !== false && e.hasAccount);
 }
+
+/** «Աջափնյակ, Կոմիտաս 5». թաղամասը չի կրկնվում, եթե արդեն կա հասցեում */
+export function placeLine(district?: string | null, address?: string | null, sep = ', '): string {
+  if (district && address && address.includes(district)) return address;
+  return [district, address].filter(Boolean).join(sep);
+}

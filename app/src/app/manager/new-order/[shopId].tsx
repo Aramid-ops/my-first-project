@@ -38,7 +38,7 @@ export default function NewOrderForShop() {
           <Text style={[styles.body, { fontSize: 16 }]}>{textOrder.text}</Text>
         </View>
       ) : null}
-      <TextInput importantForAutofill="no"
+      <TextInput placeholderTextColor={colors.textMuted} importantForAutofill="no"
         accessibilityLabel="Որոնել ապրանք"
         placeholder="Որոնել ապրանք կամ արտիկուլ"
         value={filter}

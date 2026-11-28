@@ -52,7 +52,7 @@ export default function SupplierCatalog() {
           <Text style={{ color: colors.warnText }}>Այս մատակարարից պատվերը ժամանակավորապես անհասանելի է. կապվեք մենեջերի հետ։</Text>
         </View>
       ) : null}
-      <TextInput importantForAutofill="no"
+      <TextInput placeholderTextColor={colors.textMuted} importantForAutofill="no"
         value={filter}
         onChangeText={setFilter}
         placeholder="Որոնել այս մատակարարի մոտ"

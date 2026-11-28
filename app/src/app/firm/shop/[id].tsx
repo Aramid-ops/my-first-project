@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 
-import { formatAmd, formatDayTime } from '@/lib/rules';
+import { formatAmd, formatDayTime, placeLine } from '@/lib/rules';
 import { useStore } from '@/lib/store';
 import { colors } from '@/lib/theme';
 import { shopStatusLabel, type Order, type Perm } from '@/lib/types';
@@ -50,7 +50,7 @@ export default function FirmShopCard() {
         <Pressable accessibilityRole="button" accessibilityLabel="Հետ" onPress={() => router.back()} hitSlop={12}>
           <Text style={{ fontSize: 24 }}>‹</Text>
         </Pressable>
-        <Title sub={[shop.district, shop.address].filter(Boolean).join(', ')}>{shop.name}</Title>
+        <Title sub={placeLine(shop.district, shop.address)}>{shop.name}</Title>
       </View>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 12, paddingBottom: 32 }}>
         {shop.phone ? (

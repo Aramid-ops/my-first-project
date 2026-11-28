@@ -42,7 +42,7 @@ export default function SupplyRequests() {
       </View>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 12, paddingBottom: 24 }}>
         <Card style={{ gap: 10 }}>
-          <TextInput
+          <TextInput placeholderTextColor={colors.textMuted}
             importantForAutofill="no"
             accessibilityLabel="Ինչ է պետք"
             placeholder={'Ինչ է պետք (գրեք կամ թելադրեք 🎤)\nօր.՝ Ձու C0, շաբաթական 300 հատ'}

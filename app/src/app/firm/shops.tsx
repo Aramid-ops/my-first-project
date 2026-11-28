@@ -1,5 +1,6 @@
 // Բոլոր խանութները (ռեստորաններ, սրճարաններ...)՝ մատակարարի համար. գտնել, զանգել, առաջարկել
 import { Redirect, router } from 'expo-router';
+import { placeLine } from '@/lib/rules';
 import { useEffect, useState } from 'react';
 import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
@@ -57,7 +58,7 @@ export default function AllShops() {
         </Pressable>
         <Title sub={rows ? `${rows.length} խանութ, ռեստորան, սրճարան` : undefined}>Բոլոր խանութները</Title>
       </View>
-      <TextInput
+      <TextInput placeholderTextColor={colors.textMuted}
         importantForAutofill="no"
         value={product}
         onChangeText={setProduct}
@@ -67,7 +68,7 @@ export default function AllShops() {
         style={{ minHeight: 46, borderWidth: 1, borderColor: colors.dark, borderRadius: radius.md, paddingHorizontal: 14, fontSize: 15, backgroundColor: colors.card, color: colors.text, marginBottom: 8 }}
       />
       {!product.trim() ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, marginBottom: 8 }} contentContainerStyle={{ gap: 8 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, flexShrink: 0, minHeight: 48, marginBottom: 8 }} contentContainerStyle={{ gap: 8, alignItems: 'center', paddingVertical: 2 }}>
           {categories.filter((c) => c !== 'Այլ').map((c) => (
             <Pressable key={c} accessibilityRole="button" onPress={() => setProduct(c)} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.card }}>
               <Text style={styles.body}>{c}</Text>
@@ -80,7 +81,7 @@ export default function AllShops() {
           {demand.filter((d) => d.qty_band).length} կետ գնում է «{product.trim()}», {demand.filter((d) => d.price_status === 'none').length}-ը՝ ոչ (վերջին 3 ամիս, հավելվածի պատվերներով)։ Ծավալը՝ մոտավոր, ամսական։
         </Text>
       ) : null}
-      <TextInput
+      <TextInput placeholderTextColor={colors.textMuted}
         importantForAutofill="no"
         value={q}
         onChangeText={setQ}
@@ -114,7 +115,7 @@ export default function AllShops() {
               {r.is_client ? <Pill text="Ձեր հաճախորդն է" /> : null}
             </View>
             <Text style={styles.muted}>
-              {[r.district, r.address].filter(Boolean).join(', ')}
+              {placeLine(r.district, r.address)}
               {r.distance_km != null ? ` · 📍 ${r.distance_km} կմ` : ''}
             </Text>
             {r.price_status && statusLabel[r.price_status] ? (

@@ -72,8 +72,8 @@ export default function ShopOrder() {
                   <View style={{ gap: 8, backgroundColor: '#FBF3EC', borderRadius: radius.md, padding: 12 }}>
                     <Chips options={(Object.keys(issueLabel) as IssueKind[]).map((k) => ({ value: k, label: issueLabel[k] }))} value={kind} onChange={setKind} />
                     <View style={{ flexDirection: 'row', gap: 8 }}>
-                      <TextInput importantForAutofill="no" accessibilityLabel="Քանակ" placeholder="Քանակ" value={qty} onChangeText={(v) => setQty(v.replace(/[^\d.]/g, ''))} keyboardType="decimal-pad" style={input} />
-                      <TextInput importantForAutofill="no" accessibilityLabel="Նշում" placeholder="Նշում (ըստ ցանկության)" value={note} onChangeText={setNote} style={[input, { flex: 1 }]} />
+                      <TextInput placeholderTextColor={colors.textMuted} importantForAutofill="no" accessibilityLabel="Քանակ" placeholder="Քանակ" value={qty} onChangeText={(v) => setQty(v.replace(/[^\d.]/g, ''))} keyboardType="decimal-pad" style={input} />
+                      <TextInput placeholderTextColor={colors.textMuted} importantForAutofill="no" accessibilityLabel="Նշում" placeholder="Նշում (ըստ ցանկության)" value={note} onChangeText={setNote} style={[input, { flex: 1 }]} />
                     </View>
                     <Pressable
                       accessibilityRole="button"

@@ -82,6 +82,7 @@ const tab = async (p, t) => { await vis(p, t, { exact: true }).click(); await p.
   await a.goto('http://localhost:8099/my-first-project/'); await a.waitForTimeout(4000);
   await tab(a, 'Խանութներ'); await vis(a, /Live շուկա/).click(); await a.waitForTimeout(2500);
   await vis(a, /Խանութները ուզում են/).click(); await a.waitForTimeout(900);
+  ok('16. մատակարարի գրելու դաշտը չկա «Խանութները ուզում են» ներդիրում', (await a.getByLabel('Ինչ եք առաջարկում').count()) === 0);
   // միայն փորձնական հարցմանը (ոչ իրական հարցումներին)
   const req = a.getByText('🛒 Ձու C0', { exact: true }).locator('xpath=ancestor::div[.//div[text()="💼 Առաջարկել"]][1]');
   ok('9. փորձնական հարցումը գտնվեց', (await req.count()) === 1);
@@ -91,6 +92,16 @@ const tab = async (p, t) => { await vis(p, t, { exact: true }).click(); await p.
   ok('9. առաջարկը գնաց անձնական չաթ', sql("select count(*) from messages where body like '💼 Առաջարկ ձեր «Ձու C0»%'").includes(':1'));
   await s.waitForTimeout(2500);
   ok('9. խանութը տեսնում է «💼 Ստացել է 1 առաջարկ»', (await s.getByText(/Ստացել է 1 առաջարկ/).count()) === 1);
+  ok('16. առաջարկի տեքստը երևում է հենց հարցման տակ', (await s.getByText('Ունենք, 58 ֏, առաքում վաղը').count()) >= 1);
+  ok('16. գույների բացատրությունը', (await s.getByText(/Կարմիրը/).count()) >= 1);
+  await vis(s, /Մատակարարները առաջարկում են/).click(); await s.waitForTimeout(600);
+  ok('16. խանութի գրելու դաշտը չկա «Մատակարարները առաջարկում են» ներդիրում', (await s.getByLabel('Ինչ ապրանք եք փնտրում').count()) === 0);
+  // 14. «Բոլոր մատակարարները»՝ որոնում ապրանքով
+  await vis(s, '‹').click(); await s.waitForTimeout(800);
+  await s.getByLabel('Մատակարարներ').first().click(); await s.waitForTimeout(1500);
+  await s.getByLabel('Որոնել մատակարար կամ ապրանք').fill('ջուր'); await s.waitForTimeout(2500);
+  ok('14. «ջուր» → Աթենք (ապրանքով)', (await s.getByText(/ապրանք՝ «ջուր»/).count()) >= 1 && (await s.getByText('Աթենք', { exact: true }).filter({ visible: true }).count()) === 1);
+  await s.screenshot({ path: S + '/p14-suppliers.png' });
   await s.screenshot({ path: S + '/p9-offers.png' });
   ok('էջերում JS սխալ չկա', [...a.errs, ...s.errs, ...s2.errs].length === 0);
   if ([...a.errs, ...s.errs, ...s2.errs].length) console.log(a.errs, s.errs, s2.errs);

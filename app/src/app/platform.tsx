@@ -75,7 +75,7 @@ export default function Platform() {
                     <Image key={i} source={{ uri: u }} style={{ width: 150, height: 110, borderRadius: radius.sm }} contentFit="cover" accessibilityLabel={['Իրավունք առջև', 'Իրավունք հետև', 'Սելֆի անձնագրով'][i]} />
                   ))}
                 </View>
-                <TextInput
+                <TextInput placeholderTextColor={colors.textMuted}
                   accessibilityLabel="Մերժման պատճառ"
                   placeholder="Մերժման պատճառ (եթե մերժում եք)"
                   value={note[v.user_id] ?? ''}

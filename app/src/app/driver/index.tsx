@@ -9,7 +9,7 @@ import { applyOutbox, loadOutbox, openRoute, saveOutbox, syncOutbox, type Driver
 import { driverDays, earlierThanUsualMin, type FinishedDayRow } from '@/lib/driver-stats';
 import { currentPoint } from '@/lib/geo';
 import { orderByNearest } from '@/lib/route';
-import { formatQty, formatTime, toISODate } from '@/lib/rules';
+import { formatQty, formatTime, toISODate, placeLine } from '@/lib/rules';
 import { ChatButton, PlatformLink } from '@/components/chat-button';
 import { VerificationBanner } from '@/components/verification-banner';
 import { InviteButton } from '@/components/invite-button';
@@ -172,7 +172,7 @@ export default function DriverStops() {
               <View style={{ flex: 1, gap: 2 }}>
                 <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700' }}>{shop.name}</Text>
                 <Text style={{ color: colors.onDarkMuted, fontSize: 13 }}>
-                  {[shop.district, shop.address].filter(Boolean).join(' · ')}
+                  {placeLine(shop.district, shop.address, ' · ')}
                 </Text>
               </View>
               {shop.phone ? (

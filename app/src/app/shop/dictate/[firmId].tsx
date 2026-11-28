@@ -32,7 +32,7 @@ export default function DictateOrder() {
       </View>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 12, paddingBottom: 24 }}>
         <Text style={styles.muted}>Գրեք կամ սեղմեք ստեղնաշարի 🎤-ը և ասեք, օր.՝ «երկու արկղ կոլա, տասը կաթ»։ Ստուգեք տեքստը և ուղարկեք։</Text>
-        <TextInput
+        <TextInput placeholderTextColor={colors.textMuted}
           importantForAutofill="no"
           accessibilityLabel="Պատվերի տեքստը"
           placeholder="Ինչ է պետք…"

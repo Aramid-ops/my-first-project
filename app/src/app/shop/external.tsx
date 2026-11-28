@@ -129,7 +129,7 @@ export default function ExternalSuppliers() {
               </Pressable>
               {openId === e.id ? (
                 <>
-                  <TextInput
+                  <TextInput placeholderTextColor={colors.textMuted}
                     importantForAutofill="no"
                     accessibilityLabel="Պատվերի տեքստ"
                     multiline
