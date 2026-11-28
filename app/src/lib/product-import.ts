@@ -3,7 +3,7 @@ import { categories } from './categories';
 import { units, type Product, type Unit } from './types';
 
 export type ImportRow = { line: number; name: string; unit: Unit; price: number; minQty: number; step: number; packNote: string; category?: string; existing?: Product };
-export type ImportPreview = { rows: ImportRow[]; added: ImportRow[]; updated: ImportRow[]; priceChanges: { name: string; from: number; to: number }[]; errors: string[] };
+export type ImportPreview = { rows: ImportRow[]; added: ImportRow[]; updated: ImportRow[]; priceChanges: { name: string; from: number; to: number }[]; errors: string[]; newCategories: string[] };
 
 // Վերնագրեր՝ հայերեն կամ անգլերեն
 const cols: Record<string, string[]> = {
@@ -24,13 +24,25 @@ export function csvRows(text: string): string[][] {
   return lines.map((l) => l.split(sep).map((c) => c.trim().replace(/^"|"$/g, '')));
 }
 
+/** Գրված կատեգորիա → ստանդարտը (մեծատառ/փոքրատառ անկախ) կամ նոր՝ ինչպես գրված է. դատարկ՝ ավտոմատ */
+function categoryOf(raw: string, known: string[], added: string[]) {
+  const t = raw.replace(/\s+/g, ' ').trim();
+  if (!t) return undefined;
+  const hit = [...known, ...added].find((c) => c.toLowerCase() === t.toLowerCase());
+  if (hit) return hit;
+  const c = t[0].toUpperCase() + t.slice(1);
+  added.push(c);
+  return c;
+}
+
 const num = (v: unknown) => Number(String(v ?? '').replace(/\s/g, '').replace(',', '.'));
 
 export function buildPreview(table: unknown[][], existing: Product[]): ImportPreview {
   const head = (table[0] ?? []).map((h) => String(h ?? '').trim().toLowerCase());
   const idx = (k: string) => head.findIndex((h) => cols[k].includes(h));
   const at = (r: unknown[], k: string) => (idx(k) >= 0 ? String(r[idx(k)] ?? '').trim() : '');
-  const out: ImportPreview = { rows: [], added: [], updated: [], priceChanges: [], errors: [] };
+  const out: ImportPreview = { rows: [], added: [], updated: [], priceChanges: [], errors: [], newCategories: [] };
+  const known = [...categories, ...existing.map((p) => p.category).filter((c): c is string => !!c)];
   if (idx('name') < 0 || idx('price') < 0) {
     out.errors.push('Առաջին տողում պետք է լինեն «անվանում» և «գին» սյուները (ներբեռնեք նմուշը)');
     return out;
@@ -49,7 +61,7 @@ export function buildPreview(table: unknown[][], existing: Product[]): ImportPre
     const minQty = num(at(r, 'minQty')) || 1;
     const row: ImportRow = {
       line, name, unit: unitRaw as Unit, price, minQty, step: num(at(r, 'step')) || minQty,
-      packNote: at(r, 'packNote'), category: categories.includes(at(r, 'category')) ? at(r, 'category') : undefined,
+      packNote: at(r, 'packNote'), category: categoryOf(at(r, 'category'), known, out.newCategories),
       existing: existing.find((p) => p.name.trim().toLowerCase() === name.toLowerCase()),
     };
     out.rows.push(row);

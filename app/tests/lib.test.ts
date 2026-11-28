@@ -102,7 +102,9 @@ test('Excel ներմուծում. նոր / թարմացվող / գնի փոփո�
   assert.equal(p.updated.length, 1);
   assert.deepEqual(p.priceChanges, [{ name: 'ձու c0', from: 55, to: 60 }]);
   assert.equal(p.errors.length, 2); // գին չկա, «շիշ» միավոր չկա
-  assert.equal(p.added[0].category, undefined); // անհայտ կատեգորիա → ավտոմատ
+  assert.equal(p.added[0].category, 'Անհայտ'); // նոր կատեգորիա՝ ինչպես գրված է
+  assert.deepEqual(p.newCategories, ['Անհայտ']);
+  assert.equal(p.updated[0].category, 'Ձու'); // ստանդարտը
   assert.equal(buildPreview([['x', 'y']], []).errors.length, 1);
 });
 

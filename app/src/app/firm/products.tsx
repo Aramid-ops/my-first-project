@@ -37,6 +37,7 @@ function downloadTemplate() {
 export default function FirmProducts() {
   const { session, employees, products, saveProduct, perms } = useStore();
   const [preview, setPreview] = useState<ImportPreview | null>(null);
+  const [newCat, setNewCat] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
   const [draft, setDraft] = useState<Draft | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -44,6 +45,8 @@ export default function FirmProducts() {
   const me = session?.kind === 'employee' ? employees.find((e) => e.id === session.employeeId) : undefined;
   if (!me || !perms.includes('products')) return <Redirect href="/" />;
   const list = products.filter((p) => p.firmId === me.firmId && (matches(p.name, filter) || (p.sku ?? '').toLowerCase().startsWith(filter.trim().toLowerCase())));
+  // ստանդարտ + ֆիրմայի իր (նոր) կատեգորիաները
+  const allCats = [...new Set([...categories, ...products.filter((p) => p.firmId === me.firmId && p.category).map((p) => p.category!)])];
   const set = (patch: Partial<Draft>) => setDraft((d) => (d ? { ...d, ...patch } : d));
   const num = (v: string) => Number(v.replace(',', '.'));
 
@@ -135,6 +138,7 @@ export default function FirmProducts() {
             <Text style={styles.body}>🆕 Նոր ապրանք՝ {preview.added.length}</Text>
             <Text style={styles.body}>🔄 Թարմացվող՝ {preview.updated.length}</Text>
             {preview.priceChanges.length ? <Text style={[styles.body, { color: colors.warnText }]}>💰 {preview.priceChanges.length} ապրանքի գինը կփոխվի</Text> : null}
+            {preview.newCategories.length ? <Text style={styles.body}>🏷 Նոր կատեգորիա՝ {preview.newCategories.join(', ')}</Text> : null}
             {preview.errors.length ? <Text style={[styles.body, { color: colors.warnText }]}>⚠️ Սխալ տողեր՝ {preview.errors.length} (չեն ներմուծվի)</Text> : null}
           </Card>
           {preview.priceChanges.length ? (
@@ -183,10 +187,21 @@ export default function FirmProducts() {
             <Field label="Անվանում" value={draft.name} onChangeText={(v) => set({ name: v })} />
             <Text style={styles.muted}>Կատեգորիա{draft.categoryAuto ? ' (ընտրվում է ինքնաբերաբար՝ ըստ անվան)' : ''}</Text>
             <Chips
-              options={[{ value: '__auto', label: draft.categoryAuto && draft.category ? `Ավտոմատ · ${draft.category}` : 'Ավտոմատ' }, ...categories.map((c) => ({ value: c, label: c }))]}
-              value={draft.categoryAuto ? '__auto' : draft.category ?? '__auto'}
-              onChange={(v) => set(v === '__auto' ? { categoryAuto: true } : { category: v, categoryAuto: false })}
+              options={[
+                { value: '__auto', label: draft.categoryAuto && draft.category ? `Ավտոմատ · ${draft.category}` : 'Ավտոմատ' },
+                ...allCats.map((c) => ({ value: c, label: c })),
+                { value: '__new', label: '+ Նոր կատեգորիա' },
+              ]}
+              value={newCat !== null ? '__new' : draft.categoryAuto ? '__auto' : draft.category ?? '__auto'}
+              onChange={(v) => {
+                setNewCat(v === '__new' ? '' : null);
+                if (v !== '__new') set(v === '__auto' ? { categoryAuto: true } : { category: v, categoryAuto: false });
+              }}
             />
+            {newCat !== null ? (
+              <Field label="Նոր կատեգորիա" value={newCat} placeholder="Օր.՝ Ավտոյի պահեստամասեր" autoComplete="off"
+                onChangeText={(v) => { setNewCat(v); set(v.trim() ? { category: v.trim(), categoryAuto: false } : { categoryAuto: true }); }} />
+            ) : null}
             <Text style={styles.muted}>Միավոր</Text>
             <Chips options={units.map((u) => ({ value: u, label: u }))} value={draft.unit} onChange={(u) => set({ unit: u, weighed: u === 'կգ' || u === 'գ' ? true : draft.weighed })} />
             <Field label={`Գին մեկ ${draft.unit}-ի համար, ֏`} value={draft.price} onChangeText={(v) => set({ price: v.replace(/[^\d.,]/g, '') })} keyboardType="number-pad" />
@@ -215,7 +230,7 @@ export default function FirmProducts() {
       ) : (
         <>
           <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
-            <Button label="+ Նոր ապրանք" onPress={() => { setMsg(null); setDraft({ ...empty }); }} style={{ flex: 1 }} />
+            <Button label="+ Նոր ապրանք" onPress={() => { setMsg(null); setNewCat(null); setDraft({ ...empty }); }} style={{ flex: 1 }} />
             <Button kind="outline" label="📊 Ներմուծել Excel-ից" onPress={pickFile} style={{ flex: 1 }} />
           </View>
           <Pressable accessibilityRole="button" onPress={downloadTemplate} hitSlop={8} style={{ marginBottom: 10 }}>
@@ -231,7 +246,7 @@ export default function FirmProducts() {
           {msg ? <Text style={{ color: colors.primary, marginBottom: 8 }}>{msg}</Text> : null}
           <ScrollView contentContainerStyle={{ gap: 8, paddingBottom: 24 }}>
             {list.map((p) => (
-              <Pressable key={p.id} accessibilityRole="button" onPress={() => { setMsg(null); setDraft(toDraft(p)); }} style={[styles.card, { flexDirection: 'row', alignItems: 'center', gap: 12, opacity: p.inStock ? 1 : 0.55 }]}>
+              <Pressable key={p.id} accessibilityRole="button" onPress={() => { setMsg(null); setNewCat(null); setDraft(toDraft(p)); }} style={[styles.card, { flexDirection: 'row', alignItems: 'center', gap: 12, opacity: p.inStock ? 1 : 0.6 }]}>
                 {p.imageUrl ? <Image source={{ uri: p.imageUrl }} style={{ width: 48, height: 48, borderRadius: 10 }} contentFit="cover" /> : <View style={{ width: 48, height: 48, borderRadius: 10, backgroundColor: '#F2F1EC' }} />}
                 <View style={{ flex: 1 }}>
                   <Text style={styles.body}>{p.name}</Text>
@@ -242,9 +257,10 @@ export default function FirmProducts() {
                     {p.inStock ? '' : ' · Չկա'}
                   </Text>
                 </View>
-                <Pressable accessibilityRole="button" accessibilityLabel={p.inStock ? 'Նշել՝ Չկա' : 'Նշել՝ Կա'} onPress={() => toggleStock(p)} hitSlop={8}
-                  style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: p.inStock ? colors.border : colors.primary }}>
-                  <Text style={{ fontSize: 13, color: p.inStock ? colors.textMuted : colors.primary, fontWeight: '600' }}>{p.inStock ? 'Չկա' : '✓ Կա'}</Text>
+                {/* Ցույց է տալիս ՀԻՄԻԿՎԱ վիճակը. սեղմելով՝ փոխում է (Կա → Չկա → Կա) */}
+                <Pressable accessibilityRole="switch" accessibilityState={{ checked: p.inStock }} accessibilityLabel={`${p.name}՝ ${p.inStock ? 'Կա' : 'Չկա'}`} onPress={() => toggleStock(p)} hitSlop={8}
+                  style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: p.inStock ? colors.primarySoft : '#F2F1EC' }}>
+                  <Text style={{ fontSize: 13, color: p.inStock ? colors.primary : colors.textMuted, fontWeight: '700' }}>{p.inStock ? '✓ Կա' : 'Չկա'}</Text>
                 </Pressable>
               </Pressable>
             ))}

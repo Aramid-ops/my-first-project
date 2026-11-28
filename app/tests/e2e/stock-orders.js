@@ -25,7 +25,7 @@ const P = (n) => `(select id from products where name = '${n}' and firm_id = ${F
   // նախնական վիճակ (թեստը կարելի է կրկնել)
   sql(`delete from orders where firm_id = ${F} and status <> 'delivered';
        delete from stock_moves where firm_id = ${F};
-       delete from products where firm_id = ${F} and name = 'Թեստ պանիր';
+       delete from products where firm_id = ${F} and name in ('Թեստ պանիր', 'Թեստ ավտո յուղ');
        update products set price = 500, in_stock = true where firm_id = ${F} and name = 'Թեստ կաթ 1 լ';
        update shop_firm_links set payment_days = null where firm_id = ${F};
        delete from supplier_deals where text = 'Թեստ ակցիա հաճախորդներին';`);
@@ -36,12 +36,15 @@ const P = (n) => `(select id from products where name = '${n}' and firm_id = ${F
   ok('18. «📥 Ներբեռնել նմուշը» կա', (await a.getByText(/Ներբեռնել նմուշը/).count()) === 1);
   const [fc] = await Promise.all([a.waitForEvent('filechooser'), vis(a, '📊 Ներմուծել Excel-ից').click()]);
   await fc.setFiles(XLSX); await a.waitForTimeout(2500);
-  ok('18. նախադիտում՝ 1 նոր', (await a.getByText('🆕 Նոր ապրանք՝ 1').count()) === 1);
+  ok('18. նախադիտում՝ 2 նոր', (await a.getByText('🆕 Նոր ապրանք՝ 2').count()) === 1);
+  ok('18. նոր կատեգորիա', (await a.getByText('🏷 Նոր կատեգորիա՝ Ավտոյի պահեստամասեր').count()) === 1);
   ok('18. «1 ապրանքի գինը կփոխվի»', (await a.getByText(/1 ապրանքի գինը կփոխվի/).count()) === 1);
   ok('18. սխալ միավորը ցույց է տրված', (await a.getByText(/«շիշ» միավոր չկա/).count()) === 1);
   await a.screenshot({ path: S + '/s18-preview.png' });
-  await vis(a, /Հաստատել \(2\)/).click(); await a.waitForTimeout(4000);
+  await vis(a, /Հաստատել \(3\)/).click(); await a.waitForTimeout(4000);
   ok('18. գինը թարմացավ բազայում', sql(`select price from products where id = ${P('Թեստ կաթ 1 լ')}`).includes('777'));
+  ok('18. իր կատեգորիան պահվեց', sql(`select category from products where id = ${P('Թեստ ավտո յուղ')}`).includes('Ավտոյի պահեստամասեր'));
+  ok('19. «Կա / Չկա» ցույց է տալիս վիճակը', (await a.getByText('✓ Կա').count()) >= 2);
   ok('18. նոր ապրանքը ստեղծվեց', sql(`select count(*) n from products where id = ${P('Թեստ պանիր')}`).includes('"n":1'));
   // 20. Պահեստ
   await a.goto(BASE + '/firm/stock'); await a.waitForTimeout(2500);

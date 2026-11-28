@@ -37,7 +37,7 @@ export function FirmProfile({ firm }: { firm: Firm }) {
           Ձեր ապրանքներից՝ {suggest.join(', ')} · ավելացնել →
         </Text>
       ) : null}
-      <MultiChips options={categories.filter((c) => c !== 'Այլ')} value={f.categories} onChange={(v) => set({ categories: v })} />
+      <MultiChips options={[...new Set([...categories.filter((c) => c !== 'Այլ'), ...fromProducts, ...f.categories])]} value={f.categories} onChange={(v) => set({ categories: v })} />
 
       <Text style={[styles.strong, { marginTop: 8 }]}>Որտեղ ենք առաքում</Text>
       <MultiChips options={[ALL_YEREVAN]} value={f.areas} onChange={(v) => set({ areas: v })} />
