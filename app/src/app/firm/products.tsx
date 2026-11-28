@@ -23,6 +23,17 @@ type Draft = { id?: string; name: string; unit: Unit; packNote: string; price: s
 const empty: Draft = { name: '', unit: 'հատ', packNote: '', price: '', minQty: '1', step: '1', weighed: false, inStock: true, categoryAuto: true };
 const toDraft = (p: Product): Draft => ({ id: p.id, name: p.name, unit: p.unit, packNote: p.packNote ?? '', price: String(p.price), minQty: String(p.minQty), step: String(p.step), weighed: !!p.weighed, inStock: p.inStock, imageUrl: p.imageUrl, category: p.category, categoryAuto: p.categoryAuto !== false });
 
+/** Վեբում՝ ուղիղ ներբեռնում (ոչ թե բացում Excel Online-ում), հեռախոսում՝ բրաուզերով */
+function downloadTemplate() {
+  if (Platform.OS !== 'web') return Linking.openURL(TEMPLATE_URL);
+  const a = document.createElement('a');
+  a.href = TEMPLATE_URL.replace('https://aramid-ops.github.io', location.origin);
+  a.download = 'matakarar-apranqner.xlsx';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
 export default function FirmProducts() {
   const { session, employees, products, saveProduct, perms } = useStore();
   const [preview, setPreview] = useState<ImportPreview | null>(null);
@@ -207,7 +218,7 @@ export default function FirmProducts() {
             <Button label="+ Նոր ապրանք" onPress={() => { setMsg(null); setDraft({ ...empty }); }} style={{ flex: 1 }} />
             <Button kind="outline" label="📊 Ներմուծել Excel-ից" onPress={pickFile} style={{ flex: 1 }} />
           </View>
-          <Pressable accessibilityRole="button" onPress={() => (Platform.OS === 'web' ? window.open(TEMPLATE_URL) : Linking.openURL(TEMPLATE_URL))} hitSlop={8} style={{ marginBottom: 10 }}>
+          <Pressable accessibilityRole="button" onPress={downloadTemplate} hitSlop={8} style={{ marginBottom: 10 }}>
             <Text style={{ color: colors.primary, fontWeight: '600' }}>📥 Ներբեռնել նմուշը (Excel)</Text>
           </Pressable>
           <TextInput placeholderTextColor={colors.textMuted} importantForAutofill="no"
