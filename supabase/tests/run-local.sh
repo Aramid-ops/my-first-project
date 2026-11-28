@@ -17,7 +17,7 @@ create schema net; create table net.q (id serial, url text, body jsonb);
 create function net.http_post(url text, body jsonb, headers jsonb) returns bigint language sql as $$ insert into net.q(url, body) values (url, body) returning id $$;
 SQL
 for f in supabase/migrations/*.sql; do
-  case "$f" in *0014_cron.sql) continue;; esac
+  case "$f" in *_cron.sql) continue;; esac
   # տեղում չկան pg_net, storage — դրանց մասերը բաց ենք թողնում
   python3 - "$f" <<'PY'
 import sys,re

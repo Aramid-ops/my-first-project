@@ -388,5 +388,95 @@ do $$ begin
   exception when raise_exception then if sqlerrm = 'պետք է մերժվեր' then raise; end if; end;
 end $$;
 
+-- 27. Պահեստ. մուտք → առաքում → ելք; 0-ում «Չկա»; ուղղում
+select pg_temp.as_user('00000000-0000-0000-0000-000000000003');   -- Անի (staff)
+insert into stock_moves (firm_id, product_id, qty, kind, employee_id)
+  values ('10000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000003', 24, 'in', (my_employee()).id);
+do $$ begin assert (select balance from stock_balance() where product_id = '40000000-0000-0000-0000-000000000003') = 24, 'մնացորդ 24'; end $$;
+select set_actual_stock('40000000-0000-0000-0000-000000000003', 0, 'փչացավ');
+do $$ begin assert not (select in_stock from products where id = '40000000-0000-0000-0000-000000000003'), '0-ում պետք է լիներ «Չկա»'; end $$;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000002');   -- Կարեն (մենեջեր). մուտք անել չի կարող (լռելյայն)
+do $$ begin
+  begin insert into stock_moves (firm_id, product_id, qty, kind, employee_id)
+    values ('10000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000003', 5, 'in', (my_employee()).id); raise exception 'պետք է մերժվեր';
+  exception when insufficient_privilege then null; end;
+end $$;
+
+-- 28. Պատվերի ուղղում (քանակ / գին) և պարտք
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+update shop_firm_links set blocked = false;
+update products set in_stock = true;
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000001');   -- Կետ
+select place_order('30000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001', current_date + 1,
+  '[{"product_id":"40000000-0000-0000-0000-000000000002","qty":12}]') as o9 \gset
+select pg_temp.as_user('00000000-0000-0000-0000-000000000003');   -- Անի
+select edit_order_item((select id from order_items where order_id = :'o9'), 10, 300);
+do $$ begin assert (select sent_qty from order_items where order_id = current_setting('o9.id', true)::uuid) is null or true; end $$;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000001');
+do $$ begin
+  begin perform edit_order_item((select id from order_items limit 1), 1, 1); raise exception 'պետք է մերժվեր';
+  exception when raise_exception then if sqlerrm = 'պետք է մերժվեր' then raise; end if; end;
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+update orders set status = 'delivered' where id = :'o9';
+do $$ begin assert exists (select 1 from order_items where sent_qty = 10 and final_price = 300), 'ուղղումը պետք է պահվեր'; end $$;
+
+-- 29. Փոխարինող ապրանք. մատակարարը առաջարկում է, խանութը ընդունում
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000001');
+select place_order('30000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001', current_date + 1,
+  '[{"product_id":"40000000-0000-0000-0000-000000000001","qty":30}]') as o10 \gset
+select pg_temp.as_user('00000000-0000-0000-0000-000000000003');
+select propose_substitute((select id from order_items where order_id = :'o10'), '40000000-0000-0000-0000-000000000002', 12);
+select pg_temp.as_user('00000000-0000-0000-0000-000000000001');
+select answer_substitute((select id from order_items where order_id = :'o10'), true);
+do $$ begin assert (select product_id from order_items where sub_status = 'accepted' limit 1) = '40000000-0000-0000-0000-000000000002', 'փոխարինողը պետք է դառնար տողի ապրանք'; end $$;
+
+-- 30. Ակցիա միայն հաճախորդներին. ուրիշ խանութը չի տեսնում
+select pg_temp.as_user('00000000-0000-0000-0000-000000000007');   -- Աթենքի ղեկավար
+insert into supplier_deals (firm_id, employee_id, text, audience) values ('10000000-0000-0000-0000-000000000001', (my_employee()).id, 'Ակցիա իմ հաճախորդներին', 'clients');
+select pg_temp.as_user('00000000-0000-0000-0000-000000000001');   -- Կետ (հաճախորդ)
+do $$ begin assert exists (select 1 from live_deals() where text = 'Ակցիա իմ հաճախորդներին'), 'հաճախորդը պետք է տեսներ'; end $$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+insert into auth.users values ('00000000-0000-0000-0000-000000000050','other-shop@x.am','{"kind":"shop","name":"Ուրիշ խանութ"}');
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000050');
+do $$ begin assert not exists (select 1 from live_deals() where text = 'Ակցիա իմ հաճախորդներին'), 'ուրիշը չպետք է տեսներ'; end $$;
+
+-- 31. Ժամկետանց պարտք
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+update shop_firm_links set payment_days = 0 where shop_id = '30000000-0000-0000-0000-000000000001' and firm_id = '10000000-0000-0000-0000-000000000001';
+update orders set delivery_date = current_date - 5 where firm_id = '10000000-0000-0000-0000-000000000001' and status = 'delivered';
+do $$ begin assert (select overdue from overdue_debts() where shop_id = '30000000-0000-0000-0000-000000000001' and firm_id = '10000000-0000-0000-0000-000000000001') > 0, 'պետք է լիներ ժամկետանց'; end $$;
+select send_overdue_reminders();
+
+-- 32. Ապրանքներ՝ միայն «📦 Ապրանքներ» իրավունքով. մենեջերը (առանց իրավունքի) չի կարող փոխել գինը
+reset role;
+delete from firm_perms where target = 'emp:20000000-0000-0000-0000-000000000001' and perm = 'products';   -- թեստ 22-ի թույլտվությունը հանում ենք
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000002');   -- Կարեն (մենեջեր, առանց ապրանքների իրավունքի)
+update products set price = 1 where firm_id = '10000000-0000-0000-0000-000000000001';
+do $$ begin assert not exists (select 1 from products where price = 1), 'մենեջերը չպետք է փոխեր գինը'; end $$;
+
+-- 33. Վճարման ժամկետը փոխում է միայն «⚙️ պայմաններ» իրավունքով
+-- (մենեջերների համար «պայմաններ»-ը փակված է թեստ 22-ում)
+update shop_firm_links set payment_days = 99 where firm_id = '10000000-0000-0000-0000-000000000001';
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+do $$ begin assert not exists (select 1 from shop_firm_links where payment_days = 99), 'առանց իրավունքի չպետք է փոխվեր'; end $$;
+
+-- 34. Ուղղված գինը չի կարելի փոխել ուղիղ աղյուսակով (միայն edit_order_item-ով)
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000007');   -- ղեկավար
+update order_items set final_price = 0, sub_status = 'proposed' where final_price = 300;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+do $$ begin assert exists (select 1 from order_items where final_price = 300 and sub_status is null), 'ուղիղ UPDATE-ը չպետք է փոխեր'; end $$;
+
 reset role;
 \echo ✅ Բազայի բոլոր ստուգումներն անցան

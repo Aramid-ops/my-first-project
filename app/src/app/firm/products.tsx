@@ -1,45 +1,37 @@
-// Ֆիրմայի ապրանքներ (ղեկավար և ներքին աշխատողներ). ավելացնել, փոխել, նկար, «Չկա», CSV ներմուծում
+// Ֆիրմայի ապրանքներ (📦 «Ապրանքներ» իրավունքով). ավելացնել, փոխել, նկար, «Չկա», Excel/CSV ներմուծում՝ նախադիտումով
 import * as DocumentPicker from 'expo-document-picker';
 import { Image } from 'expo-image';
 import { Redirect, router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { Linking, Platform, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import readXlsxFile from 'read-excel-file/universal';
 
 import { categories } from '@/lib/categories';
 import { pickAndUpload } from '@/lib/media';
+import { buildPreview, csvRows, type ImportPreview } from '@/lib/product-import';
 import { formatAmd } from '@/lib/rules';
 import { matches } from '@/lib/search';
 import { useStore } from '@/lib/store';
 import { colors, radius } from '@/lib/theme';
 import { units, type Product, type Unit } from '@/lib/types';
+
+// Նմուշը դրված է կայքում (public/products-template.xlsx)
+const TEMPLATE_URL = 'https://aramid-ops.github.io/my-first-project/products-template.xlsx';
 import { Button, Card, Chips, Field, Screen, styles, Title } from '@/lib/ui';
 
 type Draft = { id?: string; name: string; unit: Unit; packNote: string; price: string; minQty: string; step: string; weighed: boolean; inStock: boolean; imageUrl?: string; category?: string; categoryAuto: boolean };
 const empty: Draft = { name: '', unit: 'հատ', packNote: '', price: '', minQty: '1', step: '1', weighed: false, inStock: true, categoryAuto: true };
 const toDraft = (p: Product): Draft => ({ id: p.id, name: p.name, unit: p.unit, packNote: p.packNote ?? '', price: String(p.price), minQty: String(p.minQty), step: String(p.step), weighed: !!p.weighed, inStock: p.inStock, imageUrl: p.imageUrl, category: p.category, categoryAuto: p.categoryAuto !== false });
 
-/** CSV՝ Excel-ից «Save as CSV». սյուներ՝ name, unit, price, min_qty, step, pack_note (առաջին տողը՝ վերնագրեր) */
-function parseCsv(text: string): Record<string, string>[] {
-  const lines = text.replace(/^﻿/, '').split(/\r?\n/).filter((l) => l.trim());
-  if (lines.length < 2) return [];
-  const sep = (lines[0].match(/;/g)?.length ?? 0) > (lines[0].match(/,/g)?.length ?? 0) ? ';' : ',';
-  const head = lines[0].split(sep).map((h) => h.trim().toLowerCase());
-  return lines.slice(1).map((l) => {
-    const cells = l.split(sep);
-    return Object.fromEntries(head.map((h, i) => [h, (cells[i] ?? '').trim().replace(/^"|"$/g, '')]));
-  });
-}
-
 export default function FirmProducts() {
-  const { session, employees, products, saveProduct } = useStore();
+  const { session, employees, products, saveProduct, perms } = useStore();
+  const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [filter, setFilter] = useState('');
   const [draft, setDraft] = useState<Draft | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const { firms } = useStore();
   const me = session?.kind === 'employee' ? employees.find((e) => e.id === session.employeeId) : undefined;
-  const unclaimed = firms.find((f) => f.id === me?.firmId)?.status === 'unclaimed';
-  if (!me || !(me.role === 'admin' || me.role === 'staff' || (me.role === 'manager' && unclaimed))) return <Redirect href="/" />;
+  if (!me || !perms.includes('products')) return <Redirect href="/" />;
   const list = products.filter((p) => p.firmId === me.firmId && (matches(p.name, filter) || (p.sku ?? '').toLowerCase().startsWith(filter.trim().toLowerCase())));
   const set = (patch: Partial<Draft>) => setDraft((d) => (d ? { ...d, ...patch } : d));
   const num = (v: string) => Number(v.replace(',', '.'));
@@ -67,35 +59,54 @@ export default function FirmProducts() {
     if (!err) setDraft(null);
   };
 
-  const importCsv = async () => {
-    const res = await DocumentPicker.getDocumentAsync({ type: ['text/csv', 'text/comma-separated-values', 'text/plain', 'application/vnd.ms-excel'] });
-    if (res.canceled || !res.assets?.[0]) return;
-    const rows = parseCsv(await (await fetch(res.assets[0].uri)).text());
+  // 1) ընտրել ֆայլ → 2) նախադիտում → 3) հաստատել
+  const pickFile = async () => {
+    setMsg(null);
+    const res = await DocumentPicker.getDocumentAsync({
+      type: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'text/csv', 'text/comma-separated-values', 'text/plain', 'application/vnd.ms-excel'],
+    });
+    const f = res.canceled ? null : res.assets?.[0];
+    if (!f) return;
+    try {
+      const buf = await (await fetch(f.uri)).arrayBuffer();
+      const isXlsx = /\.xlsx$/i.test(f.name) || new Uint8Array(buf.slice(0, 2)).join() === '80,75'; // «PK» = zip
+      const table = isXlsx ? (await readXlsxFile(buf))[0]?.data ?? [] : csvRows(new TextDecoder().decode(buf));
+      setPreview(buildPreview(table as unknown[][], products.filter((p) => p.firmId === me.firmId)));
+    } catch {
+      setMsg('Ֆայլը չհաջողվեց կարդալ։ Պահեք .xlsx կամ .csv ձևաչափով (ներբեռնեք նմուշը)');
+    }
+  };
+
+  const runImport = async () => {
+    if (!preview) return;
+    setBusy(true);
     let ok = 0;
-    const errors: string[] = [];
-    for (const r of rows) {
-      const name = r.name || r['անվանում'];
-      const price = num(r.price || r['գին'] || '');
-      if (!name || !price) continue;
-      const unit = (units.includes((r.unit || r['միավոր']) as Unit) ? r.unit || r['միավոր'] : 'հատ') as Unit;
-      const existing = products.find((p) => p.firmId === me.firmId && p.name === name);
+    const errors = [...preview.errors];
+    for (const r of preview.rows) {
       const err = await saveProduct({
-        id: existing?.id,
+        id: r.existing?.id,
         firmId: me.firmId,
-        name,
-        unit,
-        price,
-        minQty: num(r.min_qty || '1') || 1,
-        step: num(r.step || r.min_qty || '1') || 1,
-        packNote: r.pack_note || '',
-        weighed: unit === 'կգ' || unit === 'գ',
-        inStock: true,
+        name: r.name,
+        unit: r.unit,
+        price: r.price,
+        minQty: r.minQty,
+        step: r.step,
+        packNote: r.packNote || r.existing?.packNote || '',
+        weighed: r.existing?.weighed ?? (r.unit === 'կգ' || r.unit === 'գ'),
+        inStock: r.existing?.inStock ?? true,
+        imageUrl: r.existing?.imageUrl,
+        category: r.category ?? r.existing?.category,
+        categoryAuto: r.category ? false : r.existing?.categoryAuto ?? true,
       });
-      if (err) errors.push(`${name}: ${err}`);
+      if (err) errors.push(`${r.name}: ${err}`);
       else ok++;
     }
-    setMsg(`Ներմուծված է՝ ${ok}${errors.length ? ` · սխալներ՝ ${errors.length}` : ''}`);
+    setBusy(false);
+    setPreview(null);
+    setMsg(`✓ Ներմուծված է՝ ${ok}${errors.length ? ` · չներմուծված՝ ${errors.length}` : ''}`);
   };
+
+  const toggleStock = (p: Product) => saveProduct({ ...p, inStock: !p.inStock }).then(setMsg);
 
   return (
     <Screen>
@@ -106,7 +117,45 @@ export default function FirmProducts() {
         <Title sub={`${list.length} ապրանք`}>Ապրանքներ</Title>
       </View>
 
-      {draft ? (
+      {preview ? (
+        <ScrollView contentContainerStyle={{ gap: 10, paddingBottom: 40 }}>
+          <Card style={{ gap: 6 }}>
+            <Text style={styles.strong}>Նախադիտում</Text>
+            <Text style={styles.body}>🆕 Նոր ապրանք՝ {preview.added.length}</Text>
+            <Text style={styles.body}>🔄 Թարմացվող՝ {preview.updated.length}</Text>
+            {preview.priceChanges.length ? <Text style={[styles.body, { color: colors.warnText }]}>💰 {preview.priceChanges.length} ապրանքի գինը կփոխվի</Text> : null}
+            {preview.errors.length ? <Text style={[styles.body, { color: colors.warnText }]}>⚠️ Սխալ տողեր՝ {preview.errors.length} (չեն ներմուծվի)</Text> : null}
+          </Card>
+          {preview.priceChanges.length ? (
+            <Card style={{ gap: 4 }}>
+              <Text style={styles.strong}>Գների փոփոխություն</Text>
+              {preview.priceChanges.map((c) => (
+                <Text key={c.name} style={styles.body}>
+                  {c.name}՝ {formatAmd(c.from)} → <Text style={{ fontWeight: '700', color: c.to > c.from ? colors.warnText : colors.primary }}>{formatAmd(c.to)}</Text>
+                </Text>
+              ))}
+            </Card>
+          ) : null}
+          {preview.added.length ? (
+            <Card style={{ gap: 4 }}>
+              <Text style={styles.strong}>Նոր ապրանքներ</Text>
+              {preview.added.map((r) => (
+                <Text key={r.line} style={styles.body}>{r.name} · {formatAmd(r.price)} / {r.unit}</Text>
+              ))}
+            </Card>
+          ) : null}
+          {preview.errors.length ? (
+            <Card style={{ gap: 4 }}>
+              <Text style={styles.strong}>Սխալներ</Text>
+              {preview.errors.map((e) => (
+                <Text key={e} style={[styles.body, { color: colors.warnText }]}>{e}</Text>
+              ))}
+            </Card>
+          ) : null}
+          <Button label={busy ? 'Ներմուծվում է…' : `✓ Հաստատել (${preview.rows.length})`} disabled={busy || !preview.rows.length} onPress={runImport} />
+          <Button kind="outline" label="Չեղարկել" onPress={() => setPreview(null)} />
+        </ScrollView>
+      ) : draft ? (
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 12, paddingBottom: 40 }}>
           <Card style={{ gap: 12 }}>
             <Pressable
@@ -156,8 +205,11 @@ export default function FirmProducts() {
         <>
           <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
             <Button label="+ Նոր ապրանք" onPress={() => { setMsg(null); setDraft({ ...empty }); }} style={{ flex: 1 }} />
-            <Button kind="outline" label="Ներմուծել CSV" onPress={importCsv} style={{ flex: 1 }} />
+            <Button kind="outline" label="📊 Ներմուծել Excel-ից" onPress={pickFile} style={{ flex: 1 }} />
           </View>
+          <Pressable accessibilityRole="button" onPress={() => (Platform.OS === 'web' ? window.open(TEMPLATE_URL) : Linking.openURL(TEMPLATE_URL))} hitSlop={8} style={{ marginBottom: 10 }}>
+            <Text style={{ color: colors.primary, fontWeight: '600' }}>📥 Ներբեռնել նմուշը (Excel)</Text>
+          </Pressable>
           <TextInput placeholderTextColor={colors.textMuted} importantForAutofill="no"
             accessibilityLabel="Որոնել ապրանք"
             placeholder="Որոնել ապրանք կամ արտիկուլ"
@@ -179,11 +231,13 @@ export default function FirmProducts() {
                     {p.inStock ? '' : ' · Չկա'}
                   </Text>
                 </View>
-                <Text style={{ color: colors.textMuted }}>›</Text>
+                <Pressable accessibilityRole="button" accessibilityLabel={p.inStock ? 'Նշել՝ Չկա' : 'Նշել՝ Կա'} onPress={() => toggleStock(p)} hitSlop={8}
+                  style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: p.inStock ? colors.border : colors.primary }}>
+                  <Text style={{ fontSize: 13, color: p.inStock ? colors.textMuted : colors.primary, fontWeight: '600' }}>{p.inStock ? 'Չկա' : '✓ Կա'}</Text>
+                </Pressable>
               </Pressable>
             ))}
           </ScrollView>
-          <Text style={[styles.muted, { textAlign: 'center', paddingBottom: 12 }]}>CSV սյուներ՝ name, unit, price, min_qty, step, pack_note</Text>
         </>
       )}
     </Screen>

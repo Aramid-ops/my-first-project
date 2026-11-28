@@ -9,10 +9,10 @@ import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { formatAmd, formatDayTime, placeLine } from '@/lib/rules';
 import { useStore } from '@/lib/store';
 import { colors } from '@/lib/theme';
-import { shopStatusLabel, type Order, type Perm } from '@/lib/types';
+import { linePrice, lineQty, shopStatusLabel, type Order, type Perm } from '@/lib/types';
 import { Button, Card, Chips, Field, Screen, styles, Title } from '@/lib/ui';
 
-const orderTotal = (o: Order) => o.items.reduce((s, i) => s + (i.actualQty ?? i.qty) * (i.price ?? 0), 0);
+const orderTotal = (o: Order) => o.items.reduce((s, i) => s + lineQty(i) * linePrice(i), 0);
 
 export default function FirmShopCard() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -25,6 +25,7 @@ export default function FirmShopCard() {
   const can = (p: Perm) => perms.includes(p);
   const [discount, setDiscount] = useState<string | null>(null);
   const [limit, setLimit] = useState<string | null>(null);
+  const [days, setDays] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const me = session?.kind === 'employee' ? employees.find((e) => e.id === session.employeeId) : undefined;
   if (!me) return <Redirect href="/" />;
@@ -38,11 +39,13 @@ export default function FirmShopCard() {
   const month = mine.filter((o) => new Date(o.createdAt).getTime() >= since && o.status !== 'returned');
   const ordered = month.reduce((s, o) => s + orderTotal(o), 0);
   const paid = payments.filter((p) => p.shopId === id && p.firmId === me.firmId && p.confirmed && p.markedAt && new Date(p.markedAt).getTime() >= since).reduce((s, p) => s + p.amount, 0);
-  const debt = debts.find((d) => d.shopId === id && d.firmId === me.firmId)?.debt ?? 0;
+  const dRow = debts.find((x) => x.shopId === id && x.firmId === me.firmId);
+  const debt = dRow?.debt ?? 0;
   const run = async (p: Promise<string | null>) => setMsg(await p);
 
   const d = discount ?? String(link.discountPct ?? 0);
   const lim = limit ?? (link.creditLimit != null ? String(link.creditLimit) : '');
+  const pd = days ?? (link.paymentDays != null ? String(link.paymentDays) : '');
 
   return (
     <Screen>
@@ -73,6 +76,9 @@ export default function FirmShopCard() {
           ))}
         </View>
 
+        {dRow?.overdue ? (
+          <Text style={{ color: colors.warnText, fontWeight: '600' }}>⏰ Ժամկետանց՝ {formatAmd(dRow.overdue)} · {dRow.daysLate} օր ուշացում</Text>
+        ) : null}
         <Card style={{ gap: 10 }}>
           <Text style={styles.strong}>Պայմաններ</Text>
           {can('shop_terms') ? (
@@ -85,19 +91,21 @@ export default function FirmShopCard() {
               <Field label="Պարտքի սահմանաչափ, ֏" value={lim} onChangeText={(v) => setLimit(v.replace(/\D/g, ''))} keyboardType="number-pad" placeholder="Չկա" />
             </View>
           </View>
+          <Field label="Վճարման ժամկետ՝ առաքումից քանի օր հետո" value={pd} onChangeText={(v) => setDays(v.replace(/\D/g, '').slice(0, 3))} keyboardType="number-pad" placeholder="Չկա (օր.՝ 7)" />
           <Button
             label="Պահել պայմանները"
-            disabled={(discount === null && limit === null) || Number(d) > 100}
+            disabled={(discount === null && limit === null && days === null) || Number(d) > 100 || Number(pd) > 180}
             onPress={async () => {
-              await run(setLinkTerms(id, me.firmId, Number(d) || 0, lim ? Number(lim) : null));
+              await run(setLinkTerms(id, me.firmId, Number(d) || 0, lim ? Number(lim) : null, pd ? Number(pd) : null));
               setDiscount(null);
               setLimit(null);
+              setDays(null);
             }}
           />
           </>
           ) : (
             <Text style={styles.body}>
-              Զեղչ՝ {link.discountPct ?? 0}% · սահմանաչափ՝ {link.creditLimit != null ? formatAmd(link.creditLimit) : 'չկա'}
+              Զեղչ՝ {link.discountPct ?? 0}% · սահմանաչափ՝ {link.creditLimit != null ? formatAmd(link.creditLimit) : 'չկա'} · վճարում՝ {link.paymentDays != null ? `${link.paymentDays} օրում` : 'ժամկետ չկա'}
             </Text>
           )}
           {can('lines') || can('shop_terms') ? (

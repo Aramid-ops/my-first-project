@@ -28,9 +28,11 @@ export default function FirmProfile() {
   if (st === 'active') return <Redirect href={`/shop/supplier/${f.id}`} />;
 
   const rows: [string, string | undefined][] = [
+    ['Մատակարարում է', f.categories?.length ? f.categories.join(', ') : undefined],
+    ['Առաքում է', f.serviceAreas?.length ? f.serviceAreas.join(', ') : undefined],
     ['Իրավաբանական անվանում', f.legalName],
     ['ՀՎՀՀ', f.taxId],
-    ['Հասցե', f.address],
+    ['Հասցե', [f.district, f.address].filter(Boolean).join(', ') || undefined],
     ['Նվազագույն պատվեր', f.minOrderAmount ? formatAmd(f.minOrderAmount) : undefined],
   ];
 

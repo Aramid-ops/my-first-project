@@ -25,6 +25,10 @@ export interface Firm {
   taxId?: string;
   /** Ակտիվացված է բանկային փոխանցմամբ */
   verified?: boolean;
+  /** Ինչ է մատակարարում (կատեգորիաներ) և որտեղ է առաքում (Ամբողջ Երևան / թաղամասեր / մարզեր) */
+  categories?: string[];
+  serviceAreas?: string[];
+  district?: string;
   verificationCode?: string;
   verificationPaidAt?: string;
 }
@@ -78,6 +82,8 @@ export interface ShopFirmLink {
   lineId?: string;
   discountPct?: number;
   creditLimit?: number;
+  /** Վճարման ժամկետ՝ առաքումից քանի օր հետո (դատարկ՝ չկա) */
+  paymentDays?: number;
   /** ⛔ Սև ցուցակ. խանութը չի կարող պատվիրել (պատճառը՝ link_block_notes, տեսնում է միայն ֆիրման) */
   blocked?: boolean;
   /** Ով է սկսել կապը. խանութը (հայտ) կամ ֆիրման («🤝 Առաջարկել համագործակցություն») */
@@ -85,7 +91,7 @@ export interface ShopFirmLink {
 }
 
 /** Թույլտվություններ (🔐), տե՛ս SPEC §29 */
-export type Perm = 'shops_new' | 'shop_terms' | 'blacklist' | 'lines' | 'products' | 'invite' | 'payments_view' | 'payments_confirm';
+export type Perm = 'shops_new' | 'shop_terms' | 'blacklist' | 'lines' | 'products' | 'invite' | 'payments_view' | 'payments_confirm' | 'stock' | 'order_edit';
 export const permLabel: Record<Perm, string> = {
   shops_new: '🤝 Նոր խանութներ, հայտերի ընդունում',
   shop_terms: '⚙️ Խանութների պայմաններ (զեղչ, սահմանաչափ)',
@@ -95,6 +101,8 @@ export const permLabel: Record<Perm, string> = {
   invite: '👥 Աշխատողների հրավեր',
   payments_view: '📨 Վճարումներ տեսնել, փոխանցել հաշվապահին',
   payments_confirm: '💳 Վճարման վերջնական հաստատում',
+  stock: '📦 Պահեստ (մուտք, դուրսգրում, գույքագրում)',
+  order_edit: '✏️ Պատվերի քանակ և գին փոխել',
 };
 
 export interface DriverProfile {
@@ -160,6 +168,9 @@ export interface Debt {
   paid: number;
   pending: number;
   debt: number;
+  /** Ժամկետանց մասը (վճարման ժամկետով խանութների համար) */
+  overdue?: number;
+  daysLate?: number;
 }
 
 export interface Payment {
@@ -207,6 +218,8 @@ export interface Product {
   /** Կշռվող ապրանք. պատվիրվում է մոտավոր քանակ, իրականը գրվում է կշռելուց հետո */
   weighed?: boolean;
   inStock: boolean;
+  /** «քիչ է մնացել» սահմանը (պահեստ) */
+  lowStock?: number;
 }
 
 export type OrderStatus =
@@ -218,13 +231,27 @@ export type OrderStatus =
   | 'returned'; // մենեջերը վերադարձրեց
 
 export interface OrderItem {
+  id?: string;
   productId: string;
+  /** Պատվիրված քանակը */
   qty: number;
+  /** Մատակարարի ուղարկած քանակը (դատարկ՝ ինչպես պատվիրված) */
+  sentQty?: number;
+  /** Այս պատվերի համար փոխված գինը (դատարկ՝ պատվերի պահի գինը) */
+  finalPrice?: number;
+  /** Փոխարինող ապրանքի առաջարկ */
+  subProductId?: string;
+  subQty?: number;
+  subStatus?: 'proposed' | 'accepted' | 'rejected';
   /** Կշռվող ապրանքի իրական քանակը */
   actualQty?: number;
   /** Գինը պատվերի պահին */
   price?: number;
 }
+
+/** Տողի իրական քանակը և գինը (կշռված → ուղարկված → պատվիրված) */
+export const lineQty = (i: OrderItem) => i.actualQty ?? i.sentQty ?? i.qty;
+export const linePrice = (i: OrderItem) => i.finalPrice ?? i.price ?? 0;
 
 export interface OrderEvent {
   at: string; // ISO

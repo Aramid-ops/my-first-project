@@ -92,3 +92,23 @@ test('վերջնաժամ. առաքումից մեկ օր առաջ, ժամով', 
   assert.equal(d2.getDay(), 5);
   assert.equal(orderDeadlineLabel(d2, '17:00', sun18), 'հինգշաբթի մինչև 17:00');
 });
+
+test('Excel ներմուծում. նոր / թարմացվող / գնի փոփոխություն / սխալ', async () => {
+  const { buildPreview, csvRows } = await import('../src/lib/product-import');
+  const existing = [{ id: 'p1', firmId: 'f', name: 'Ձու C0', unit: 'հատ', price: 55, minQty: 30, step: 30, inStock: true }] as never[];
+  const t = csvRows('անվանում;միավոր;գին;կատեգորիա\nձու c0;հատ;60;Ձու\nԿաթ;լ;450;Անհայտ\nՊանիր;կգ;;\nՍոուս;շիշ;300;');
+  const p = buildPreview(t, existing);
+  assert.equal(p.added.length, 1);
+  assert.equal(p.updated.length, 1);
+  assert.deepEqual(p.priceChanges, [{ name: 'ձու c0', from: 55, to: 60 }]);
+  assert.equal(p.errors.length, 2); // գին չկա, «շիշ» միավոր չկա
+  assert.equal(p.added[0].category, undefined); // անհայտ կատեգորիա → ավտոմատ
+  assert.equal(buildPreview([['x', 'y']], []).errors.length, 1);
+});
+
+test('Excel ներմուծում. նույն անունը երկու անգամ՝ սխալ', async () => {
+  const { buildPreview, csvRows } = await import('../src/lib/product-import');
+  const p = buildPreview(csvRows('անվանում,գին\nՁու,60\nձու,65'), []);
+  assert.equal(p.added.length, 1);
+  assert.equal(p.errors.length, 1);
+});

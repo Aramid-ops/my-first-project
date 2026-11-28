@@ -20,7 +20,8 @@ function App() {
   return (
     <View style={{ flex: 1 }}>
       <StatusBar style={splash ? 'light' : 'dark'} />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }} />
+      {/* Էջերը՝ միայն տվյալները բեռնվելուց հետո, որ ուղիղ հղումով (կամ թարմացնելիս) չվերադառնան գլխավոր էջ */}
+      {ready ? <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }} /> : null}
       <BrandSplash visible={splash} />
     </View>
   );

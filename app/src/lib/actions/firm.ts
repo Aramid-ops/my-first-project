@@ -41,7 +41,8 @@ export function firmActions(c: ActionCtx): FirmActions {
       return link(shopId, me.firmId, { status: 'active', manager_id: managerId, line_id: lineId });
     },
     confirmPayment: (paymentId) => run(c, supabase.from('payments').update({ confirmed_at: new Date().toISOString() }).eq('id', paymentId)),
-    setLinkTerms: (shopId, firmId, discountPct, creditLimit) => link(shopId, firmId, { discount_pct: discountPct, credit_limit: creditLimit }),
+    setLinkTerms: (shopId, firmId, discountPct, creditLimit, paymentDays) =>
+      link(shopId, firmId, { discount_pct: discountPct, credit_limit: creditLimit, payment_days: paymentDays }),
     setLinkLine: (shopId, firmId, lineId) => link(shopId, firmId, { line_id: lineId }),
     setLinkManager: (shopId, firmId, managerId) => link(shopId, firmId, { manager_id: managerId }),
     setLinkBlocked: async (shopId, firmId, blocked, reason) => {

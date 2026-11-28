@@ -92,7 +92,7 @@ export interface FirmActions {
   updateFirm: (patch: Record<string, unknown>) => Result;
   acceptRequest: (shopId: string, lineId: string | null) => Result;
   confirmPayment: (paymentId: string) => Result;
-  setLinkTerms: (shopId: string, firmId: string, discountPct: number, creditLimit: number | null) => Result;
+  setLinkTerms: (shopId: string, firmId: string, discountPct: number, creditLimit: number | null, paymentDays: number | null) => Result;
   setLinkLine: (shopId: string, firmId: string, lineId: string | null) => Result;
   setLinkManager: (shopId: string, firmId: string, managerId: string) => Result;
   setLinkBlocked: (shopId: string, firmId: string, blocked: boolean, reason: string | null) => Result;

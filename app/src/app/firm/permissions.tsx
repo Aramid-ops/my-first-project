@@ -13,8 +13,8 @@ import { Chips, Screen, styles, Title } from '@/lib/ui';
 type Row = { target: string; perm: Perm; allowed: boolean };
 const perms = Object.keys(permLabel) as Perm[];
 const defaults: Record<string, Perm[]> = {
-  manager: ['shops_new', 'shop_terms', 'lines', 'payments_view'],
-  staff: ['shops_new', 'shop_terms', 'lines', 'products', 'payments_view'],
+  manager: ['shops_new', 'shop_terms', 'lines', 'payments_view', 'order_edit'],
+  staff: ['shops_new', 'shop_terms', 'lines', 'products', 'payments_view', 'stock', 'order_edit'],
 };
 
 export default function Permissions() {

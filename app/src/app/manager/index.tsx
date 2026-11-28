@@ -6,6 +6,7 @@ import { Redirect, router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { ItemChange, OrderEdit } from '@/components/order-edit';
 import { ForwardPicker } from '@/components/forward-picker';
 import { PaymentCard } from '@/components/payment-card';
 import { deliveryLabel, formatAmd, formatDayTime, formatQty, formatTime, placeLine } from '@/lib/rules';
@@ -93,6 +94,11 @@ export default function Inbox() {
         {s.perms.includes('products') ? (
           <Pressable accessibilityRole="button" onPress={() => router.push('/firm/products')} hitSlop={8}>
             <Text style={{ color: colors.primary, fontWeight: '600' }}>Ապրանքներ և գներ →</Text>
+          </Pressable>
+        ) : null}
+        {me.role !== 'driver' ? (
+          <Pressable accessibilityRole="button" onPress={() => router.push('/firm/stock')} hitSlop={8}>
+            <Text style={{ color: colors.primary, fontWeight: '600' }}>📦 Պահեստ →</Text>
           </Pressable>
         ) : null}
       </View>
@@ -226,8 +232,10 @@ export default function Inbox() {
 }
 
 function OrderCard({ order: o, action, withInvoice }: { order: Order; action: React.ReactNode; withInvoice: boolean }) {
-  const { shops, products, issues, setInvoice } = useStore();
+  const { shops, products, issues, setInvoice, perms } = useStore();
   const [inv, setInv] = useState(o.invoiceNumber ?? '');
+  const [editing, setEditing] = useState(false);
+  const canEdit = perms.includes('order_edit') && ['sent', 'accepted', 'preparing', 'on_the_way'].includes(o.status) && o.items.every((i) => i.id);
   const shop = shops.find((x) => x.id === o.shopId);
   const orderIssues = issues.filter((i) => i.orderId === o.id);
   return (
@@ -239,15 +247,29 @@ function OrderCard({ order: o, action, withInvoice }: { order: Order; action: Re
       <Text style={styles.muted}>
         {shop?.district} · առաքում՝ {deliveryLabel(new Date(o.deliveryDate + 'T00:00:00'))}
       </Text>
-      {o.items.map((it) => {
-        const p = products.find((x) => x.id === it.productId);
-        return (
-          <View key={it.productId} style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            <Text style={[styles.body, { flex: 1 }]}>{p?.name}</Text>
-            <Text style={styles.muted}>{p ? formatQty(p, it.qty) : it.qty}</Text>
-          </View>
-        );
-      })}
+      {editing ? (
+        <OrderEdit order={o} onDone={() => setEditing(false)} />
+      ) : (
+        o.items.map((it) => {
+          const p = products.find((x) => x.id === it.productId);
+          return (
+            <View key={it.id ?? it.productId}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Text style={[styles.body, { flex: 1 }]}>{p?.name}</Text>
+                <Text style={styles.muted}>{p ? formatQty(p, it.sentQty ?? it.qty) : it.qty}</Text>
+              </View>
+              <ItemChange item={it} unit={p?.unit} />
+              {it.subStatus === 'proposed' ? <Text style={styles.muted}>🔄 Փոխարինումը սպասում է խանութի պատասխանին</Text> : null}
+              {it.subStatus === 'rejected' ? <Text style={{ color: colors.warnText, fontSize: 13 }}>❌ Խանութը մերժեց փոխարինումը</Text> : null}
+            </View>
+          );
+        })
+      )}
+      {canEdit && !editing ? (
+        <Pressable accessibilityRole="button" onPress={() => setEditing(true)} hitSlop={8}>
+          <Text style={{ color: colors.primary, fontWeight: '600' }}>✏️ Փոխել քանակ / գին / փոխարինել</Text>
+        </Pressable>
+      ) : null}
       {orderIssues.map((i) => (
         <Pill key={i.id} tone="warn" text={`${issueLabel[i.kind]}${i.qty ? ` · ${i.qty}` : ''}`} />
       ))}

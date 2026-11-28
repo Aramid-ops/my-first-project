@@ -15,6 +15,7 @@ import { pickAndUpload } from '@/lib/media';
 import { LinesEditor, LinesExplainer } from '@/components/lines-editor';
 import { ActivationCard } from '@/components/activation-card';
 import { PaymentCard } from '@/components/payment-card';
+import { FirmProfile } from '@/components/firm-profile';
 import { Button, Card, Chips, CopyRow, Field, Logo, Screen, styles, Title } from '@/lib/ui';
 
 const dayShort = ['', 'երկ', 'երք', 'չրք', 'հնգ', 'ուրբ', 'շբթ', 'կիր'];
@@ -24,7 +25,6 @@ export default function Admin() {
   const [tab, setTab] = useState<'today' | 'lines' | 'teams' | 'shops' | 'people' | 'firm'>('today');
   const [inv, setInv] = useState<{ name: string; role: 'manager' | 'staff' | 'driver'; department: string; phone: string }>({ name: '', role: 'driver', department: '', phone: '' });
   const [code, setCode] = useState<{ code: string; phone: string; name: string } | null>(null);
-  const [info, setInfo] = useState<{ description: string; phone: string; address: string; min: string } | null>(null);
   const [drivers, setDrivers] = useState<{ driver_id: string; name: string; checked_in: boolean; open_orders: number }[]>([]);
   useEffect(() => {
     if (tab === 'today') supabase.rpc('driver_load').then(({ data }) => setDrivers(data ?? []));
@@ -195,27 +195,8 @@ export default function Admin() {
                 }}
               />
             </View>
-            {(() => {
-              // Խանութները սա տեսնում են «Բոլոր մատակարարները» էջում
-              const f = info ?? { description: firm.description ?? '', phone: firm.phone ?? '', address: firm.address ?? '', min: String(firm.minOrderAmount ?? 0) };
-              const set = (k: keyof typeof f) => (v: string) => setInfo({ ...f, [k]: k === 'min' ? v.replace(/\D/g, '') : v });
-              return (
-                <>
-                  <Field label="Մեր մասին (ինչ ենք մատակարարում, ինչ տարածքներում)" value={f.description} onChangeText={set('description')} autoComplete="off" />
-                  <Field label="Հեռախոս" value={f.phone} onChangeText={set('phone')} keyboardType="phone-pad" />
-                  <Field label="Հասցե (պահեստ / գրասենյակ)" value={f.address} onChangeText={set('address')} autoComplete="off" />
-                  <Field label="Նվազագույն պատվեր, ֏" value={f.min} onChangeText={set('min')} keyboardType="number-pad" />
-                  <Button
-                    label="Պահել"
-                    disabled={info === null}
-                    onPress={() => {
-                      run(updateFirm({ description: f.description.trim() || null, phone: f.phone.replace(/\D/g, '').length > 3 ? normalizePhone(f.phone) : null, address: f.address.trim() || null, min_order_amount: Number(f.min || 0) }));
-                      setInfo(null);
-                    }}
-                  />
-                </>
-              );
-            })()}
+            {/* Խանութները սա տեսնում են «Բոլոր մատակարարները» էջում */}
+            <FirmProfile firm={firm} />
             {/* Պահեստի տեղը՝ «մոտիկից» դասավորման և վարորդների երթուղու համար */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <Text style={[styles.body, { flex: 1 }]}>{firm.baseLat != null ? '📍 Պահեստի տեղը նշված է ✓' : '📍 Պահեստի տեղը նշված չէ'}</Text>
@@ -231,6 +212,7 @@ export default function Admin() {
             </View>
             <Text style={styles.muted}>Սեղմեք, երբ գտնվում եք պահեստում։</Text>
             <Button kind="dark" label="Ապրանքներ →" onPress={() => router.push('/firm/products')} />
+            <Button kind="outline" label="📦 Պահեստ →" onPress={() => router.push('/firm/stock')} />
           </Card>
         ) : null}
 

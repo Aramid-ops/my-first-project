@@ -18,7 +18,7 @@ type Req = {
 };
 type Deal = {
   id: string; firm_id: string; firm_name: string; firm_logo: string | null; text: string; category: string | null; price: number | null;
-  created_at: string; employee_name: string | null; phone: string | null; mine: boolean; interested: boolean; interests: number | null; qty: number | null; unit: string | null;
+  created_at: string; employee_name: string | null; phone: string | null; mine: boolean; interested: boolean; interests: number | null; qty: number | null; unit: string | null; audience?: 'all' | 'clients';
 };
 type Tab = 'wants' | 'offers';
 
@@ -44,6 +44,7 @@ export default function LiveMarket() {
   const [price, setPrice] = useState('');
   const [qty, setQty] = useState('');
   const [unit, setUnit] = useState<string>('հատ');
+  const [audience, setAudience] = useState<'all' | 'clients'>('all');
   const [msg, setMsg] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   // իմ հարցումներին եկած առաջարկները (միայն խանութի համար. RLS)
@@ -94,7 +95,7 @@ export default function LiveMarket() {
     const { error } =
       postKind === 'wants'
         ? await supabase.from('supply_requests').insert({ ...row, shop_id: shopId, price_hint: p })
-        : await supabase.from('supplier_deals').insert({ ...row, firm_id: me!.firmId, employee_id: me!.id, price: p });
+        : await supabase.from('supplier_deals').insert({ ...row, firm_id: me!.firmId, employee_id: me!.id, price: p, audience });
     setSending(false);
     if (error) return setMsg(error.message);
     setText('');
@@ -168,6 +169,13 @@ export default function LiveMarket() {
                 />
               </View>
               <Chips options={units.map((u) => ({ value: u, label: u }))} value={unit} onChange={setUnit} />
+              {postKind === 'offers' ? (
+                <Chips
+                  options={[{ value: 'all', label: '🌍 Բոլոր խանութներին' }, { value: 'clients', label: '🤝 Միայն իմ հաճախորդներին' }]}
+                  value={audience}
+                  onChange={setAudience}
+                />
+              ) : null}
               <Button label={sending ? 'Ուղարկվում է…' : postKind === 'wants' ? '🔎 Գտնել մատակարար' : '📣 Առաջարկել խանութներին'} disabled={sending} onPress={post} />
             </>
           ) : null}
@@ -290,6 +298,7 @@ export default function LiveMarket() {
                   </View>
                   <Text style={[styles.body, { fontSize: 16 }]}>💼 {d.text}</Text>
                   {d.qty ? <Text style={styles.muted}>{Number(d.qty)} {d.unit ?? ''}</Text> : null}
+                  {d.audience === 'clients' ? <Text style={styles.muted}>🤝 Միայն {d.mine ? 'ձեր' : 'իր'} հաճախորդների համար</Text> : null}
                   {isShop ? (
                     <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
                       {d.interested ? (

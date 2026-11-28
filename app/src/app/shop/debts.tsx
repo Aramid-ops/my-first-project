@@ -21,7 +21,7 @@ export default function ShopDebts() {
   const shopId = session.shopId;
   const rows = links
     .filter((l) => l.shopId === shopId && l.status === 'active')
-    .map((l) => ({ firm: firms.find((f) => f.id === l.firmId)!, d: debts.find((x) => x.firmId === l.firmId && x.shopId === shopId) }))
+    .map((l) => ({ firm: firms.find((f) => f.id === l.firmId)!, days: l.paymentDays, d: debts.find((x) => x.firmId === l.firmId && x.shopId === shopId) }))
     .filter((r) => r.firm);
   const total = rows.reduce((s, r) => s + (r.d?.debt ?? 0), 0);
   // Կարելի է նշել միայն չհաստատված վճարումներից դուրս մնացած պարտքը
@@ -42,7 +42,7 @@ export default function ShopDebts() {
       </View>
 
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 10, paddingBottom: 24 }}>
-        {rows.map(({ firm, d }) => {
+        {rows.map(({ firm, d, days }) => {
           const open = openDebt(d);
           const editing = draft?.firmId === firm.id;
           return (
@@ -52,9 +52,11 @@ export default function ShopDebts() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.strong}>{firm.name}</Text>
                   {d?.delivered ? <Text style={styles.muted}>Առաքված՝ {formatAmd(d.delivered)} · վճարված՝ {formatAmd(d.paid)}</Text> : null}
+                  {days != null ? <Text style={styles.muted}>Վճարման ժամկետ՝ առաքումից {days} օր</Text> : null}
                 </View>
                 <Text style={{ fontSize: 17, fontWeight: '700', color: (d?.debt ?? 0) > 0 ? colors.dark : colors.primary }}>{formatAmd(d?.debt ?? 0)}</Text>
               </View>
+              {d?.overdue ? <Text style={{ color: colors.warnText, fontWeight: '600' }}>⏰ Ժամկետանց՝ {formatAmd(d.overdue)} · {d.daysLate} օր ուշացում</Text> : null}
               {d?.pending ? <Text style={styles.muted}>⏳ Սպասում է մատակարարի հաստատման՝ {formatAmd(d.pending)}</Text> : null}
 
               {editing && draft ? (

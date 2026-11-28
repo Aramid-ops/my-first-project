@@ -35,8 +35,10 @@ export default function AllSuppliers() {
   const sorted = [...firms].sort(
     (a, b) => Number(!!b.featuredUntil && b.featuredUntil >= today) - Number(!!a.featuredUntil && a.featuredUntil >= today) || a.name.localeCompare(b.name, 'hy'),
   );
-  const cats = [...new Set(firms.map((f) => f.category.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'hy'));
-  const list = (cat === 'all' ? sorted : sorted.filter((f) => f.category.trim() === cat)).filter(
+  // ոլորտները՝ ֆիրմայի նշած կատեգորիաներից (կամ հին տեքստային «category»-ից)
+  const catsOf = (f: (typeof firms)[number]) => (f.categories?.length ? f.categories : [f.category.trim()].filter(Boolean));
+  const cats = [...new Set(firms.flatMap(catsOf))].sort((a, b) => a.localeCompare(b, 'hy'));
+  const list = (cat === 'all' ? sorted : sorted.filter((f) => catsOf(f).includes(cat))).filter(
     (f) => !q.trim() || startsWithWord(`${f.name} ${f.category}`, q) || byProduct[f.id],
   );
 

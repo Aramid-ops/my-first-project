@@ -68,6 +68,8 @@ export async function loadData(uid: string): Promise<Data | null> {
   ]);
   if (res.some((r) => r.error)) return fromCache(uid);
   const [f, e, s, l, p, o, tm, tmm, ln, iss, dbt, pay, pa, dp, me, member, txt] = res;
+  // ժամկետանց պարտքեր. սխալի դեպքում՝ պարզապես դատարկ (մնացածը չի տուժում)
+  const overdue = ((await supabase.rpc('overdue_debts')).data ?? []) as { shop_id: string; firm_id: string; overdue: number; days_late: number }[];
 
   const lines = (ln.data ?? []).map(mapLine);
   const session: Session = member.data
@@ -94,7 +96,10 @@ export async function loadData(uid: string): Promise<Data | null> {
     teams: mapTeams(tm.data ?? [], tmm.data ?? []),
     lines,
     issues: (iss.data ?? []).map(mapIssue),
-    debts: ((dbt.data ?? []) as unknown[]).map(mapDebt),
+    debts: ((dbt.data ?? []) as unknown[]).map(mapDebt).map((d) => {
+      const x = overdue.find((y) => y.shop_id === d.shopId && y.firm_id === d.firmId && Number(y.overdue) > 0);
+      return x ? { ...d, overdue: Number(x.overdue), daysLate: x.days_late } : d;
+    }),
     payments: (pay.data ?? []).map(mapPayment),
     isPlatformAdmin: !!pa.data,
     perms: [],

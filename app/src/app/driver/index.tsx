@@ -194,7 +194,7 @@ export default function DriverStops() {
                     key={it.productId}
                     style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderTopWidth: i ? 1 : 0, borderTopColor: '#8F3D55' }}>
                     <Text style={{ color: '#FFFFFF', flex: 1, fontSize: 15 }}>{p?.name ?? 'Ապրանք'}</Text>
-                    <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 15 }}>{p ? formatQty(p, it.qty) : it.qty}</Text>
+                    <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 15 }}>{p ? formatQty(p, it.sentQty ?? it.qty) : it.sentQty ?? it.qty}</Text>
                   </View>
                 );
               })}

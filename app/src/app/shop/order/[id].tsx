@@ -3,16 +3,18 @@ import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { ItemChange } from '@/components/order-edit';
 import { pickAndUpload } from '@/lib/media';
-import { formatQty, formatTime } from '@/lib/rules';
+import { formatAmd, formatQty, formatTime } from '@/lib/rules';
 import { useStore } from '@/lib/store';
+import { supabase } from '@/lib/supabase';
 import { colors, radius } from '@/lib/theme';
-import { issueLabel, shopStatusLabel, type IssueKind } from '@/lib/types';
+import { issueLabel, linePrice, lineQty, shopStatusLabel, type IssueKind } from '@/lib/types';
 import { Button, Chips, Pill, Screen, styles, Title } from '@/lib/ui';
 
 export default function ShopOrder() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { session, orders, firms, products, issues, reportIssue, repeatOrder } = useStore();
+  const { session, orders, firms, products, issues, reportIssue, repeatOrder, reload } = useStore();
   const [openItem, setOpenItem] = useState<string | null>(null);
   const [kind, setKind] = useState<IssueKind>('broken');
   const [qty, setQty] = useState('');
@@ -24,6 +26,12 @@ export default function ShopOrder() {
   if (!o) return <Redirect href="/shop/orders" />;
   const firm = firms.find((f) => f.id === o.firmId);
   const myIssues = issues.filter((x) => x.orderId === o.id);
+  const total = o.items.reduce((sum, i) => sum + lineQty(i) * linePrice(i), 0);
+  const answer = async (itemId: string, accept: boolean) => {
+    const { error } = await supabase.rpc('answer_substitute', { p_item: itemId, p_accept: accept });
+    setMsg(error?.message ?? null);
+    reload();
+  };
 
   return (
     <Screen>
@@ -50,11 +58,14 @@ export default function ShopOrder() {
             const reported = myIssues.filter((x) => x.productId === it.productId);
             const isOpen = openItem === it.productId;
             return (
-              <View key={it.productId} style={{ gap: 8, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F0EEE7' }}>
+              <View key={it.id ?? it.productId} style={{ gap: 8, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F0EEE7' }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.body}>{p?.name}</Text>
-                    <Text style={styles.muted}>{p ? formatQty(p, it.actualQty ?? it.qty) : it.qty}</Text>
+                    <Text style={styles.muted}>
+                      {p ? formatQty(p, lineQty(it)) : lineQty(it)} · {formatAmd(linePrice(it))}
+                    </Text>
+                    <ItemChange item={it} unit={p?.unit} />
                   </View>
                   {o.status === 'delivered' ? (
                     <Pressable
@@ -65,6 +76,18 @@ export default function ShopOrder() {
                     </Pressable>
                   ) : null}
                 </View>
+                {it.subStatus === 'proposed' && it.id ? (
+                  <View style={{ gap: 8, backgroundColor: '#FBF3EC', borderRadius: radius.md, padding: 10 }}>
+                    <Text style={styles.body}>
+                      🔄 Մատակարարը առաջարկում է փոխարինել՝ <Text style={styles.strong}>{products.find((x) => x.id === it.subProductId)?.name}</Text> × {it.subQty}
+                      {products.find((x) => x.id === it.subProductId) ? ` · ${formatAmd(products.find((x) => x.id === it.subProductId)!.price)}` : ''}
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <Button kind="outline" label="❌ Ոչ" onPress={() => answer(it.id!, false)} style={{ flex: 1 }} />
+                      <Button label="✅ Համաձայն եմ" onPress={() => answer(it.id!, true)} style={{ flex: 1 }} />
+                    </View>
+                  </View>
+                ) : null}
                 {reported.map((r) => (
                   <Pill key={r.id} tone="warn" text={`${issueLabel[r.kind]}${r.qty ? ` · ${r.qty}` : ''} · ուղարկված է`} />
                 ))}
@@ -101,6 +124,8 @@ export default function ShopOrder() {
           })}
         </View>
 
+        <Text style={[styles.strong, { textAlign: 'right' }]}>Ընդամենը՝ {formatAmd(total)}</Text>
+        {msg && !openItem ? <Text style={{ color: colors.warnText }}>{msg}</Text> : null}
         <Button
           kind="dark"
           label="Կրկնել պատվերը"

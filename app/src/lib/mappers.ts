@@ -35,6 +35,9 @@ export const mapFirm = (r: any): Firm => ({
   legalName: r.legal_name ?? undefined,
   taxId: r.tax_id ?? undefined,
   verified: r.verified ?? true,
+  categories: r.categories ?? [],
+  serviceAreas: r.service_areas ?? [],
+  district: r.district ?? undefined,
   verificationCode: r.verification_code ?? undefined,
   verificationPaidAt: r.verification_paid_at ?? undefined,
 });
@@ -78,6 +81,7 @@ export const mapLink = (r: any): ShopFirmLink => ({
   lineId: r.line_id ?? undefined,
   discountPct: Number(r.discount_pct ?? 0),
   creditLimit: num(r.credit_limit),
+  paymentDays: num(r.payment_days),
   blocked: !!r.blocked,
   initiatedBy: r.initiated_by ?? 'shop',
 });
@@ -114,6 +118,7 @@ export const mapProduct = (r: any): Product => ({
   step: Number(r.step),
   weighed: r.weighed,
   inStock: r.in_stock,
+  lowStock: r.low_stock == null ? undefined : Number(r.low_stock),
   category: r.category ?? undefined,
   categoryAuto: r.category_auto ?? true,
 });
@@ -129,7 +134,10 @@ export const mapOrder = (r: any): Order => ({
   status: r.status as OrderStatus,
   deliveryDate: r.delivery_date,
   createdAt: r.created_at,
-  items: (r.order_items ?? []).map((i: any) => ({ productId: i.product_id, qty: Number(i.qty), actualQty: num(i.actual_qty), price: num(i.price) })),
+  items: (r.order_items ?? []).map((i: any) => ({
+      id: i.id, productId: i.product_id, qty: Number(i.qty), actualQty: num(i.actual_qty), price: num(i.price),
+      sentQty: num(i.sent_qty), finalPrice: num(i.final_price), subProductId: i.sub_product_id ?? undefined, subQty: num(i.sub_qty), subStatus: i.sub_status ?? undefined,
+    })),
   events: (r.order_events ?? [])
     .map((e: any) => ({ at: e.at, byName: e.actor_name, text: e.text, lat: e.lat ?? undefined, lng: e.lng ?? undefined }))
     .sort((a: any, b: any) => a.at.localeCompare(b.at)),

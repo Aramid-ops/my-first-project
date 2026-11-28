@@ -235,3 +235,25 @@ export function CopyRow({ label, value }: { label: string; value?: string | null
     </View>
   );
 }
+
+/** Մի քանի ընտրությամբ կոճակներ (օր.՝ կատեգորիաներ, թաղամասեր) */
+export function MultiChips({ options, value, onChange }: { options: string[]; value: string[]; onChange: (v: string[]) => void }) {
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+      {options.map((o) => {
+        const on = value.includes(o);
+        return (
+          <Pressable
+            key={o}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: on }}
+            accessibilityLabel={o}
+            onPress={() => onChange(on ? value.filter((x) => x !== o) : [...value, o])}
+            style={{ minHeight: 40, paddingHorizontal: 12, borderRadius: 999, justifyContent: 'center', backgroundColor: on ? colors.dark : colors.card, borderWidth: 1, borderColor: on ? colors.dark : colors.borderStrong }}>
+            <Text style={{ color: on ? '#FFFFFF' : colors.text }}>{on ? '✓ ' : ''}{o}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
